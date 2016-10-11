@@ -3,13 +3,16 @@ close all;
 clear all;
 
 % Interval between feedback
-FEEDBACK_INTERVAL = .01;
+% interval of 0.01 with ME of 0.001 is good for raw signals 
+% interval of 0.02 with ME of 0.001 is good for power
+% signal
+FEEDBACK_INTERVAL = .02; 
 FEEDBACK_ME = 0.001;
 
 % should be equal to FS defined in next block
 sampling_rate = 128;
 
-MV_AVG_LENGTH = 5; % in seconds
+MV_AVG_LENGTH = 1; % in seconds
 DATA_POINTS = MV_AVG_LENGTH * sampling_rate;
 
 PSD_FREQS = 13:1:30; 
@@ -18,6 +21,12 @@ PSD_FREQS = 13:1:30;
 CHANNELS_OF_INTEREST = [8, 12]; % C3 = Ch8; C4 = Ch12
 
 data_buffer = zeros(length(CHANNELS_OF_INTEREST), DATA_POINTS); %pre-allocate data
+
+% what display?
+power = true;
+
+% what hand
+hand = 'right';
 
 %% instantiate the LSL library
 % make sure that everything is on the path and LSL is loaded
@@ -45,26 +54,34 @@ plot_fig = true;
 % Set up plot
 % Figure
 close all;
-i = 0;
-for ch = CHANNELS_OF_INTEREST;
-    i = i+1;
-    ax(i) = subplot(length(CHANNELS_OF_INTEREST),1,i);
-    
-    set(ax(i), 'xlim', [0 DATA_POINTS/FS], 'ylim', [-500 500]);
-    ax(i).YLabel.String =  sprintf('Ch%i', ch);
-    ax(i).XLabel.String =  'Time (s)';
-    lines(i) = line('Parent', ax(i));
-end;
 
-% Create xlabel
-time = (0:DATA_POINTS-1)/FS;
+if power
+    b = barh(1e1); 
+    axis([1e-1 1e3 .9 1.1]);
+    set(gca,'position',[0 0 1 1],'units','normalized');
+    axis off; 
+else
+    i = 0;
+    for ch = CHANNELS_OF_INTEREST;
+        i = i+1;
+        ax(i) = subplot(length(CHANNELS_OF_INTEREST),1,i);
 
-% call plots early
-i = 0;
-for ch = CHANNELS_OF_INTEREST;
-    i = i+1;
-    set(lines(i), 'XData', time, 'YData', zeros(1,DATA_POINTS));
-end;
+        set(ax(i), 'xlim', [0 DATA_POINTS/FS], 'ylim', [-500 500]);
+        ax(i).YLabel.String =  sprintf('Ch%i', ch);
+        ax(i).XLabel.String =  'Time (s)';
+        lines(i) = line('Parent', ax(i));
+    end;
+
+    % Create xlabel
+    time = (0:DATA_POINTS-1)/FS;
+
+    % call plots early
+    i = 0;
+    for ch = CHANNELS_OF_INTEREST;
+        i = i+1;
+        set(lines(i), 'XData', time, 'YData', zeros(1,DATA_POINTS));
+    end;
+end
 
 % Run
 tic;
@@ -80,7 +97,7 @@ between_plot_times = 0;
 
 plot_stop = 0;
 while true
-    k = k + i;
+    k = k + 1;
     % get data from the inlet
     % this keeps pulling 'samples' as though inlet is just a place to look for them
     start_inlet = toc;
@@ -133,27 +150,30 @@ while true
         between_plot_time = toc - plot_stop;
         between_plot_times(j) = between_plot_time;
         
-        plot_start = toc;
-        i = 0;
-        for ch = CHANNELS_OF_INTEREST;
-            i = i+1;
-            set(lines(i), 'YData', display_buffer(:,i).')
-        end
-%         pause(0.0001)
-        plot_stop = toc;
-        plot_time = plot_stop - plot_start;
-        plot_times(j) = plot_time;
+        if power
+            plot_start = toc;
+    %         welch power takes ~ 4 ms
+            [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS); % There are options to play around with for this function
 
-% %         welch power takes ~ 4 ms
-%         [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS); % There are options to play around with for this function
-%         
-% %         Mean Theta Power
-% %         plot takes ~30 ms 
-%         barh(mean(mean(Pxx))); 
-%         axis([1e-1 1e2 .9 1.1]);
-%         set(gca,'position',[0 0 1 1],'units','normalized');
-%         axis off;
-        
+    %         Mean Theta Power
+    %         plot takes ~30 ms 
+            set(b, 'YData', mean(mean(Pxx)))
+            
+            plot_stop = toc;
+            plot_time = plot_stop - plot_start;
+            plot_times(j) = plot_time;
+        else
+            plot_start = toc;
+            i = 0;
+            for ch = CHANNELS_OF_INTEREST;
+                i = i+1;
+                set(lines(i), 'YData', display_buffer(:,i).')
+            end
+            plot_stop = toc;
+            plot_time = plot_stop - plot_start;
+            plot_times(j) = plot_time;
+        end
+      
         drawnow;
     end;
 end
