@@ -3,8 +3,8 @@ close all;
 clear all;
 
 % Interval between feedback
-FEEDBACK_INTERVAL = .01;
-FEEDBACK_ME = 0.001;
+FEEDBACK_INTERVAL = .05;
+FEEDBACK_ME = 0.01;
 
 % should be equal to FS defined in next block
 sampling_rate = 128;
@@ -18,6 +18,10 @@ PSD_FREQS = 13:1:30;
 CHANNELS_OF_INTEREST = [8, 12]; % C3 = Ch8; C4 = Ch12
 
 data_buffer = zeros(length(CHANNELS_OF_INTEREST), DATA_POINTS); %pre-allocate data
+
+err = 0;
+
+
 
 %% instantiate the LSL library
 % make sure that everything is on the path and LSL is loaded
@@ -69,14 +73,11 @@ end;
 % Run
 tic;
 k = 0;
-j = 0;
-
 inlet_times = 0;
 buffer_times = 0;
 detrend_times = 0;
 plot_times = 0;
-since_last_plot_times = 0;
-between_plot_times = 0;
+times_since_last_plot = 0;
 
 plot_stop = 0;
 while true
@@ -84,17 +85,15 @@ while true
     % get data from the inlet
     % this keeps pulling 'samples' as though inlet is just a place to look for them
     start_inlet = toc;
-%     [temp_data,ts] = inlet.pull_sample();
-    [temp_data, ts] = inlet.pull_chunk();
+    [temp_data,ts] = inlet.pull_sample();
     inlet_time = toc - start_inlet;
     inlet_times(k) = inlet_time;
     
     % temp data has data from multiple time points (rows) for each
     % channel (columns)
     start_buffer = toc;
-%     new_points2 = temp_data(:, CHANNELS_OF_INTEREST);
-%     new_points = new_points2.';
-    new_points = temp_data(CHANNELS_OF_INTEREST, :);
+    new_points2 = temp_data(:, CHANNELS_OF_INTEREST);
+    new_points = new_points2.';
 
     % resolve length of data points
     new_length = size(new_points,2);
@@ -119,30 +118,25 @@ while true
     % timing
     % NOTE: time between plots takes less than 2 ms to run
     if plot_fig == false;
-        since_last_plot_time = toc - plot_stop;
+        time_since_last_plot = toc - plot_stop;
     else 
-        since_last_plot_time = FEEDBACK_INTERVAL;
+        time_since_last_plot = FEEDBACK_INTERVAL;
     end
-    since_last_plot_times(k) = since_last_plot_time;
+    times_since_last_plot(k) = time_since_last_plot;
 
     % plot
-    if (FEEDBACK_INTERVAL - FEEDBACK_ME < since_last_plot_time); 
-        j = j + 1;
+    if (FEEDBACK_INTERVAL - FEEDBACK_ME < time_since_last_plot); 
         plot_fig = false;
        
-        between_plot_time = toc - plot_stop;
-        between_plot_times(j) = between_plot_time;
-        
         plot_start = toc;
         i = 0;
         for ch = CHANNELS_OF_INTEREST;
             i = i+1;
             set(lines(i), 'YData', display_buffer(:,i).')
         end
-%         pause(0.0001)
         plot_stop = toc;
         plot_time = plot_stop - plot_start;
-        plot_times(j) = plot_time;
+        plot_times(k) = plot_time;
 
 % %         welch power takes ~ 4 ms
 %         [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS); % There are options to play around with for this function
@@ -160,27 +154,22 @@ end
 
 %% Look at timing after
 close all;
-
-% figure
-% histogram(inlet_times)
-% title('inlet times')
+figure
+histogram(inlet_times)
+title('inlet times')
 
 figure
 histogram(plot_times)
 title('plot times')
 
-% figure
-% histogram(detrend_times)
-% title('detrend times')
-% 
-% figure
-% histogram(buffer_times)
-% title('buffer times')
+figure
+histogram(detrend_times)
+title('detrend times')
 
 figure
-histogram(since_last_plot_times)
-title('since last plot times')
+histogram(buffer_times)
+title('buffer times')
 
 figure
-histogram(between_plot_times)
-title('between plot times')
+histogram(times_since_last_plot)
+title('total times')
