@@ -9,6 +9,9 @@ clear all;
 FEEDBACK_INTERVAL = .02; 
 FEEDBACK_ME = 0.001;
 
+% rest aquisition time
+REST_TIME = 10;
+
 % should be equal to FS defined in next block
 sampling_rate = 128;
 
@@ -26,7 +29,7 @@ data_buffer = zeros(length(CHANNELS_OF_INTEREST), DATA_POINTS); %pre-allocate da
 power = true;
 
 % what hand
-hand = 'right';
+hand_right = true;
 
 %% instantiate the LSL library
 % make sure that everything is on the path and LSL is loaded
@@ -44,20 +47,17 @@ disp('Opening an inlet...');
 inlet = lsl_inlet(result{1});
 
 % resolve stream sample rate
-FS = inlet.info.nominal_srate();
-% apperently the sampling rate is 128 Hz
+FS = inlet.info.nominal_srate(); % apperently the sampling rate is 128 Hz
 
 % create a figure
 disp('Now receiving data...');
 plot_fig = true;
 
-% Set up plot
-% Figure
 close all;
-
+figure('MenuBar', 'none', 'WindowStyle', 'modal');
 if power
     b = barh(1e1); 
-    axis([1e-1 1e3 .9 1.1]);
+    axis([-1e2 1e2 .9 1.1]);
     set(gca,'position',[0 0 1 1],'units','normalized');
     axis off; 
 else
@@ -98,10 +98,41 @@ between_plot_times = 0;
 plot_stop = 0;
 while true
     k = k + 1;
+    
+    if k ==1
+        disp('Resting EEG Aquisition...')
+        start_rest = toc; 
+        power_contra_rest_list = [];
+        power_ipsi_rest_list = [];
+        while toc - start_rest < REST_TIME
+            [temp_data, ts] = inlet.pull_chunk();
+
+            new_points = temp_data(CHANNELS_OF_INTEREST, :);
+            new_length = size(new_points,2);
+
+            data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
+            data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
+
+            display_buffer = detrend(data_buffer.');
+
+            [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
+            if hand_right;
+                power_contra_rest_list = [power_contra_rest_list, mean(Pxx(:,1)) ]; % Ch8 ==> C3
+                power_ipsi_rest_list = [power_ipsi_rest_list, mean(Pxx(:,2)) ]; % Ch12 ==> C4
+            end;
+            
+            if ( mod(toc - start_rest, 1) > 1-FEEDBACK_INTERVAL )
+                disp(floor(toc - start_rest) )
+                pause(FEEDBACK_INTERVAL)
+            end
+        end
+        power_contra_rest = mean(power_contra_rest_list);
+        power_ipsi_rest = mean(power_ipsi_rest_list);
+    end
+    
     % get data from the inlet
-    % this keeps pulling 'samples' as though inlet is just a place to look for them
+    % this keeps pulling 'chunks' as though inlet is just a place to look for them
     start_inlet = toc;
-%     [temp_data,ts] = inlet.pull_sample();
     [temp_data, ts] = inlet.pull_chunk();
     inlet_time = toc - start_inlet;
     inlet_times(k) = inlet_time;
@@ -109,13 +140,9 @@ while true
     % temp data has data from multiple time points (rows) for each
     % channel (columns)
     start_buffer = toc;
-%     new_points2 = temp_data(:, CHANNELS_OF_INTEREST);
-%     new_points = new_points2.';
     new_points = temp_data(CHANNELS_OF_INTEREST, :);
-
     % resolve length of data points
     new_length = size(new_points,2);
-
     % shift into buffer
     % this temporarily stores recent data, making room for the newest data
     data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
@@ -127,14 +154,13 @@ while true
     % detrend removes the mean value or linear trend from a vector or matrix, usually for FFT processing
     % it basically just transposes to zero - you can see this by comparing
     % graphs
-    % takes less than 0.4 ms to run
     start_detrend = toc;
     display_buffer = detrend(data_buffer.');
     detrend_time = toc - start_detrend;
     detrend_times(k) = detrend_time;
+   
 
     % timing
-    % NOTE: time between plots takes less than 2 ms to run
     if plot_fig == false;
         since_last_plot_time = toc - plot_stop;
     else 
@@ -153,12 +179,19 @@ while true
         if power
             plot_start = toc;
     %         welch power takes ~ 4 ms
-            [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS); % There are options to play around with for this function
-
+            [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
+            if hand_right;
+                power_contra = mean(Pxx(:,1)); % Ch8 ==> C3
+                log2_ERS_contra = log2(power_contra/power_contra_rest); % where positive means syncronisation (increased power relative to baseline)
+                
+                power_ipsi = mean(Pxx(:,2)); % Ch12 ==> C4
+                log2_ERS_ipsi = log2(power_ipsi/power_ipsi_rest);
+                
+                LI = log2_ERS_contra - log2_ERS_ipsi;
+            end;
+                
     %         Mean Theta Power
-    %         plot takes ~30 ms 
-            set(b, 'YData', mean(mean(Pxx)))
-            
+            set(b, 'YData', LI)
             plot_stop = toc;
             plot_time = plot_stop - plot_start;
             plot_times(j) = plot_time;
