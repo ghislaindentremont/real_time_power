@@ -89,14 +89,12 @@ larrow_spear = [[xCenter - line_width_pix/2 - fix_cross_dim_pix, yCenter + fix_c
     [xCenter - line_width_pix/2 - fix_cross_dim_pix, yCenter - fix_cross_dim_pix]];
 
 
+
 %----------------------------------------------------------------------
 %                         NF Bar 
 %----------------------------------------------------------------------
 
 NF_color = [0 0 1];
-
-
-  
 
 
 
@@ -120,9 +118,8 @@ wait_frames = 1;
 
 % NF time frames 
 NF_time = 5;
-NF_wait_frames = 2;
+NF_wait_frames = 3;
 NF_time_frames = round(NF_time / ifi / NF_wait_frames);
-
 
 
 
@@ -143,7 +140,14 @@ cond_matrix = repmat(cue_locs, 1, trials_per_condition);
 
 % Randomise the conditions
 shuffler = Shuffle(1:num_trials);
-cond_matrix_shuffled = cond_matrix(:, shuffler);
+cond_matrix_shuffled2 = cond_matrix(:, shuffler);
+
+% get ITIs 
+itis = rand(1,num_trials)+1;
+
+% final condition matrix
+cond_matrix_shuffled = [cond_matrix_shuffled2; itis];
+
 
 
 
@@ -157,14 +161,14 @@ for trial = 1:num_trials
     %---------------- Baseline EEG Aquisition -------------------------
     if trial == 1
         Screen('TextSize', window, 60); 
-        DrawFormattedText(window, 'Press Any Key To Begin the Experiment',...
+        DrawFormattedText(window, 'Press Any Key To Begin The Experiment',...
         'center', 'center', white );
         Screen('Flip', window);
         KbStrokeWait; 
         
         % baseline EEG aquisition 
         Screen('TextSize', window, 60); 
-        DrawFormattedText(window, 'Please Relax with your Eyes Open',...
+        DrawFormattedText(window, 'Please Relax With Your Eyes Open',...
         'center', 'center', white );
         Screen('Flip', window);
         
@@ -175,12 +179,22 @@ for trial = 1:num_trials
     %----------------------------------------------------------------------
 
     
-    %-------------------Trial Initiation message --------------------------
-    Screen('TextSize', window, 60); 
-    DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
-        'center', 'center', white );
+%     %-------------------Trial Initiation message --------------------------
+%     Screen('TextSize', window, 60); 
+%     DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
+%         'center', 'center', white );
+%     Screen('Flip', window);
+%     KbStrokeWait; 
+%     %----------------------------------------------------------------------
+
+
+    %----------------------------ITI --------------------------------------
+    Screen('FillRect', window, black, window_rect );
     Screen('Flip', window);
-    KbStrokeWait; 
+    
+    iti = cond_matrix_shuffled(2,trial);
+    tic;
+    while toc < iti end
     %----------------------------------------------------------------------
 
 
@@ -200,7 +214,7 @@ for trial = 1:num_trials
 
 
     %--------------------- Draw the cue -----------------------------------
-    cue_loc_idx = cond_matrix(trial);
+    cue_loc_idx = cond_matrix_shuffled(1,trial);
     cue_loc = cue_locs_list(cue_loc_idx);
     
     if strcmp(cue_loc, 'right')
@@ -267,15 +281,15 @@ for trial = 1:num_trials
 
     % Flip to the screen
     for frame = 1:NF_time_frames-1
-     
-        change_pixels = randn*3;
+        
+        change_pixels = randn;
         
         log_power_ratio_in_pixels = round(log_power_ratio_in_pixels + change_pixels);
         
         if log_power_ratio_in_pixels == 0
             log_power_ratio_in_pixels = 1;
         end
-
+    
         if log_power_ratio_in_pixels > 0
             NF_bar = [xCenter + line_width_pix/2
             , yCenter - fix_cross_dim_pix/2
@@ -291,9 +305,30 @@ for trial = 1:num_trials
         % Draw NF bar
         Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
         Screen('FillRect', window, NF_color, NF_bar);
-
+       
         % Flip to the screen
         vbl = Screen('Flip', window, vbl + (NF_wait_frames - 0.5) * ifi);
+
+    end
+    %----------------------------------------------------------------------
+    
+    
+    %------------------- End of Experiment --------------------------------
+    if trial == 4
+        
+        Screen('TextSize', window, 60); 
+        DrawFormattedText(window, 'You Have Succesfully Completed The Experiment' ,...
+        'center', 'center', white );
+        Screen('Flip', window);
+        tic;
+        while toc < 3 end
+         
+        Screen('TextSize', window, 60); 
+        DrawFormattedText(window, 'The Experimenter Should Be With You Shortly',...
+        'center', 'center', white );
+        Screen('Flip', window);
+        KbStrokeWait; 
+        
     end
     %----------------------------------------------------------------------
     
