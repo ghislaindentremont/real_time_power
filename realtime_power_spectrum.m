@@ -57,7 +57,7 @@ close all;
 figure('MenuBar', 'none', 'WindowStyle', 'modal');
 if power
     b = barh(1e1); 
-    axis([-1e2 1e2 .9 1.1]);
+    axis([-20 20 .9 1.1]);
     set(gca,'position',[0 0 1 1],'units','normalized');
     axis off; 
 else
@@ -187,7 +187,7 @@ while true
                 power_ipsi = mean(Pxx(:,2)); % Ch12 ==> C4
                 log2_ERS_ipsi = log2(power_ipsi/power_ipsi_rest);
                 
-                LI = log2_ERS_contra - log2_ERS_ipsi;
+                LI = log2_ERS_ipsi - log2_ERS_contra;
             end;
                 
     %         Mean Theta Power
