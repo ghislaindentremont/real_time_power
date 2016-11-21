@@ -42,7 +42,7 @@ Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
 %----------------------------------------------------------------------
 
 % Here we set the size of the arms of our fixation cross
-fix_cross_dim_pix = 40*4;
+fix_cross_dim_pix = 40*2;
 
 % Now we set the coordinates (these are all relative to zero we will let
 % the drawing routine center the cross in the center of our monitor for us)
@@ -103,7 +103,7 @@ NF_color = [0 0 1];
 %----------------------------------------------------------------------
 
 % Baseline duration
-baseline_time = 2;
+REST_TIME = 2;
 
 % Fixation interval time in seconds and frames
 fix_time = 2;
@@ -150,6 +150,42 @@ cond_matrix_shuffled = [cond_matrix_shuffled2; itis];
 
 
 
+%----------------------------------------------------------------------
+%                       EEG Aquisition Setup
+%----------------------------------------------------------------------
+
+% should be equal to FS defined in next block
+sampling_rate = 128;
+
+MV_AVG_LENGTH = 1; % in seconds
+DATA_POINTS = MV_AVG_LENGTH * sampling_rate;
+
+PSD_FREQS = 13:1:30; 
+
+% FIGURE OUT MAPPINGS
+CHANNELS_OF_INTEREST = [8, 12]; % C3 = Ch8; C4 = Ch12
+
+data_buffer = zeros(length(CHANNELS_OF_INTEREST), DATA_POINTS); %pre-allocate data
+
+% make sure that everything is on the path and LSL is loaded
+disp('Loading the library...');
+lib = lsl_loadlib();
+
+% resolve a stream...
+disp('Resolving an EEG stream...');
+result = {};
+while isempty(result)
+    result = lsl_resolve_byprop(lib,'name','openvibeSignal'); end
+
+% create a new inlet
+disp('Opening an inlet...');
+inlet = lsl_inlet(result{1});
+
+% resolve stream sample rate
+FS = inlet.info.nominal_srate(); % apperently the sampling rate is 128 Hz
+
+
+
 
 %----------------------------------------------------------------------
 %                       Experimental Loop
@@ -160,20 +196,43 @@ for trial = 1:num_trials
     
     %---------------- Baseline EEG Aquisition -------------------------
     if trial == 1
-        Screen('TextSize', window, 36); 
+        Screen('TextSize', window, 60); 
         DrawFormattedText(window, 'Press Any Key To Begin The Experiment',...
         'center', 'center', white );
         Screen('Flip', window);
         KbStrokeWait; 
         
         % baseline EEG aquisition 
-        Screen('TextSize', window, 36); 
+        Screen('TextSize', window, 60); 
         DrawFormattedText(window, 'Please Relax With Your Eyes Open',...
         'center', 'center', white );
-        Screen('Flip', window);
         
-        tic;
-        while toc < baseline_time end 
+        power_contra_rest_list = [];
+        power_ipsi_rest_list = [];
+        
+        disp('Resting EEG Aquisition...')
+        Screen('Flip', window);
+        start_rest = toc; 
+        while toc - start_rest < REST_TIME
+            [temp_data, ts] = inlet.pull_chunk();
+
+            new_points = temp_data(CHANNELS_OF_INTEREST, :);
+            new_length = size(new_points,2);
+
+            data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
+            data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
+
+            display_buffer = detrend(data_buffer.');
+
+            [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
+            if hand_right;
+                power_contra_rest_list = [power_contra_rest_list, mean(Pxx(:,1)) ]; % Ch8 ==> C3
+                power_ipsi_rest_list = [power_ipsi_rest_list, mean(Pxx(:,2)) ]; % Ch12 ==> C4
+            end;
+            
+        end
+        power_contra_rest = mean(power_contra_rest_list);
+        power_ipsi_rest = mean(power_ipsi_rest_list); 
         
     end
     %----------------------------------------------------------------------
@@ -316,14 +375,14 @@ for trial = 1:num_trials
     %------------------- End of Experiment --------------------------------
     if trial == 4
         
-        Screen('TextSize', window, 36); 
+        Screen('TextSize', window, 60); 
         DrawFormattedText(window, 'You Have Succesfully Completed The Experiment' ,...
         'center', 'center', white );
         Screen('Flip', window);
         tic;
         while toc < 3 end
          
-        Screen('TextSize', window, 36); 
+        Screen('TextSize', window, 60); 
         DrawFormattedText(window, 'The Experimenter Should Be With You Shortly',...
         'center', 'center', white );
         Screen('Flip', window);
