@@ -18,7 +18,7 @@ black = BlackIndex(screen_number);
 
 % Open an on screen window
 [window, window_rect] = PsychImaging('OpenWindow', screen_number, black);
-HideCursor(); 
+% HideCursor(); 
 
 % Get the size of the on screen window
 [screenXpixels, screenYpixels] = Screen('WindowSize', window);
@@ -191,209 +191,290 @@ FS = inlet.info.nominal_srate(); % apperently the sampling rate is 128 Hz
 %                       Experimental Loop
 %----------------------------------------------------------------------
 
+try 
+    for trial = 1:num_trials
 
-for trial = 1:num_trials
-    
-    %---------------- Baseline EEG Aquisition -------------------------
-    if trial == 1
-        Screen('TextSize', window, 60); 
-        DrawFormattedText(window, 'Press Any Key To Begin The Experiment',...
-        'center', 'center', white );
-        Screen('Flip', window);
-        KbStrokeWait; 
-        
-        % baseline EEG aquisition 
-        Screen('TextSize', window, 60); 
-        DrawFormattedText(window, 'Please Relax With Your Eyes Open',...
-        'center', 'center', white );
-        
-        power_contra_rest_list = [];
-        power_ipsi_rest_list = [];
-        
-        disp('Resting EEG Aquisition...')
-        Screen('Flip', window);
-        start_rest = toc; 
-        while toc - start_rest < REST_TIME
-            [temp_data, ts] = inlet.pull_chunk();
+        %---------------- Baseline EEG Aquisition -------------------------
+        if trial == 1
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'Press Any Key To Begin The Experiment',...
+            'center', 'center', white );
+            Screen('Flip', window);
+            KbStrokeWait; 
 
-            new_points = temp_data(CHANNELS_OF_INTEREST, :);
-            new_length = size(new_points,2);
+            % baseline EEG aquisition 
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'Please Relax With Your Eyes Open',...
+            'center', 'center', white );
 
-            data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
-            data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
+            power_rest_list = [];
 
-            display_buffer = detrend(data_buffer.');
+            disp('Resting EEG Aquisition...')
+            Screen('Flip', window);
+            tic; 
+            while toc < REST_TIME
+                [temp_data, ts] = inlet.pull_chunk();
 
-            [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
-            if hand_right;
-                power_contra_rest_list = [power_contra_rest_list, mean(Pxx(:,1)) ]; % Ch8 ==> C3
-                power_ipsi_rest_list = [power_ipsi_rest_list, mean(Pxx(:,2)) ]; % Ch12 ==> C4
-            end;
-            
+                new_points = temp_data(CHANNELS_OF_INTEREST, :);
+                new_length = size(new_points,2);
+
+                data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
+                data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
+
+                display_buffer = detrend(data_buffer.');
+
+                [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
+                
+                 power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
+
+            end
+            power_rest = mean(power_rest_list); 
+
         end
-        power_contra_rest = mean(power_contra_rest_list);
-        power_ipsi_rest = mean(power_ipsi_rest_list); 
-        
-    end
-    %----------------------------------------------------------------------
-
-    
-%     %-------------------Trial Initiation message --------------------------
-%     Screen('TextSize', window, 60); 
-%     DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
-%         'center', 'center', white );
-%     Screen('Flip', window);
-%     KbStrokeWait; 
-%     %----------------------------------------------------------------------
+        %----------------------------------------------------------------------
 
 
-    %----------------------------ITI --------------------------------------
-    Screen('FillRect', window, black, window_rect );
-    Screen('Flip', window);
-    
-    iti = cond_matrix_shuffled(2,trial);
-    tic;
-    while toc < iti end
-    %----------------------------------------------------------------------
+    %     %-------------------Trial Initiation message --------------------------
+    %     Screen('TextSize', window, 36; 
+    %     DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
+    %         'center', 'center', white );
+    %     Screen('Flip', window);
+    %     KbStrokeWait; 
+    %     %----------------------------------------------------------------------
 
 
-    %--------------------- Draw the fixation cross ------------------------
-    Screen('DrawLines', window, all_fix_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
-    vbl = Screen('Flip', window); 
+        %----------------------------ITI --------------------------------------
+        Screen('FillRect', window, black, window_rect );
+        Screen('Flip', window);
 
-    % Flip to the screen
-    for frame = 1:fix_time_frames-1
-        % Draw the fixation point
+        iti = cond_matrix_shuffled(2,trial);
+        tic;
+        while toc < iti end
+        %----------------------------------------------------------------------
+
+
+        %--------------------- Draw the fixation cross ------------------------
         Screen('DrawLines', window, all_fix_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
+        vbl = Screen('Flip', window); 
 
         % Flip to the screen
-        vbl = Screen('Flip', window, vbl + (wait_frames - 0.5) * ifi);
-    end
-    %----------------------------------------------------------------------
+        for frame = 1:fix_time_frames-1
+            % Draw the fixation point
+            Screen('DrawLines', window, all_fix_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
+
+            % Flip to the screen
+            vbl = Screen('Flip', window, vbl + (wait_frames - 0.5) * ifi);
+        end
+        %----------------------------------------------------------------------
 
 
-    %--------------------- Draw the cue -----------------------------------
-    cue_loc_idx = cond_matrix_shuffled(1,trial);
-    cue_loc = cue_locs_list(cue_loc_idx);
-    
-    if strcmp(cue_loc, 'right')
-        arrow_base = rarrow_base;
-        arrow_spear = rarrow_spear;
-    elseif strcmp(cue_loc, 'left')
-        arrow_base = larrow_base;
-        arrow_spear = larrow_spear;
-    else
-        disp('Error: Cue location not specified')
-        sca;
-    end
+        %--------------------- Draw the cue -----------------------------------
+        cue_loc_idx = cond_matrix_shuffled(1,trial);
+        cue_loc = cue_locs_list(cue_loc_idx);
 
-    % Draw cue 
-    Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
-    Screen('FillRect', window, arr_color, arrow_base);
-    Screen('FillPoly', window, arr_color, arrow_spear, 1);
+        if strcmp(cue_loc, 'right')
+            arrow_base = rarrow_base;
+            arrow_spear = rarrow_spear;
+        elseif strcmp(cue_loc, 'left')
+            arrow_base = larrow_base;
+            arrow_spear = larrow_spear;
+        else
+            disp('Error: Cue location not specified')
+            sca;
+        end
 
-    % Flip to the screen
-    vbl = Screen('Flip', window);
-
-    % Flip to the screen
-    for frame = 1:cue_time_frames-1
+        % Draw cue 
         Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
         Screen('FillRect', window, arr_color, arrow_base);
         Screen('FillPoly', window, arr_color, arrow_spear, 1);
 
         % Flip to the screen
-        vbl = Screen('Flip', window, vbl + (wait_frames - 0.5) * ifi);
-    end
-    %----------------------------------------------------------------------
+        vbl = Screen('Flip', window);
 
-    
-    %--------------------- Draw NF bar -----------------------------------    
-    log_power_ratio_in_pixels = round(randn * fix_cross_dim_pix + 1);
-    
-    % draw right arrow 
-    NF_bar_right = [xCenter + line_width_pix/2
-        , yCenter - fix_cross_dim_pix/2
-        , xCenter + line_width_pix/2 + log_power_ratio_in_pixels
-        , yCenter + fix_cross_dim_pix/2];
+        % Flip to the screen
+        for frame = 1:cue_time_frames-1
+            Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
+            Screen('FillRect', window, arr_color, arrow_base);
+            Screen('FillPoly', window, arr_color, arrow_spear, 1);
 
-    NF_bar_left = [xCenter - line_width_pix/2 + log_power_ratio_in_pixels
-        , yCenter - fix_cross_dim_pix/2
-        , xCenter - line_width_pix/2 
-        , yCenter + fix_cross_dim_pix/2];
-    
-    if log_power_ratio_in_pixels == 0
-        log_power_ratio_in_pixels = 1;
-    end 
-
-    if log_power_ratio_in_pixels > 0
-        NF_bar = NF_bar_right;
-    else
-        NF_bar = NF_bar_left;
-    end
-    
-    % Draw NF bar 
-    Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
-    Screen('FillRect', window, NF_color, NF_bar);
-
-    % Flip to the screen
-    vbl = Screen('Flip', window);
-
-    % Flip to the screen
-    for frame = 1:NF_time_frames-1
-        
-        change_pixels = randn;
-        
-        log_power_ratio_in_pixels = round(log_power_ratio_in_pixels + change_pixels);
-        
-        if log_power_ratio_in_pixels == 0
-            log_power_ratio_in_pixels = 1;
+            % Flip to the screen
+            vbl = Screen('Flip', window, vbl + (wait_frames - 0.5) * ifi);
         end
-    
-        if log_power_ratio_in_pixels > 0
-            NF_bar = [xCenter + line_width_pix/2
-            , yCenter - fix_cross_dim_pix/2
-            , xCenter + line_width_pix/2 + log_power_ratio_in_pixels
-            , yCenter + fix_cross_dim_pix/2];
+        %----------------------------------------------------------------------
+
+
+        %--------------------- Draw NF bar -----------------------------------    
+            
+        % get data from the inlet
+        % this keeps pulling 'chunks' as though inlet is just a place to look for them
+        [temp_data, ts] = inlet.pull_chunk();
+
+        % temp data has data from multiple time points (rows) for each
+        % channel (columns)
+        if size(temp_data, 2) > DATA_POINTS - 1
+            new_points = temp_data(CHANNELS_OF_INTEREST, size(temp_data, 2)-DATA_POINTS+1:end);
+        else 
+            new_points = temp_data(CHANNELS_OF_INTEREST, :);
+        end
+        % resolve length of data points
+        new_length = size(new_points,2);
+        % shift into buffer
+        % this temporarily stores recent data, making room for the newest data
+        data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
+        data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
+
+        % remove DC offset
+        % detrend removes the mean value or linear trend from a vector or matrix, usually for FFT processing
+        % it basically just transposes to zero - you can see this by comparing
+        % graphs
+        display_buffer = detrend(data_buffer.');
+        
+        disp('NEED TO CONFIRM DIRECTIONALITY OF LI')
+        [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
+        if strcmp(cue_loc, 'right')
+            power_contra = mean(Pxx(:,1)); % Ch8 ==> C3
+            log2_ERS_contra = log2(power_contra/power_rest); % where positive means syncronisation (increased power relative to baseline)
+
+            power_ipsi = mean(Pxx(:,2)); % Ch12 ==> C4
+            log2_ERS_ipsi = log2(power_ipsi/power_rest);
+
+            LI = log2_ERS_ipsi - log2_ERS_contra;
+
+        elseif strcmp(cue_loc, 'left')
+            power_contra = mean(Pxx(:,2)); % Ch12 ==> C4 
+            log2_ERS_contra = log2(power_contra/power_rest); % where positive means syncronisation (increased power relative to baseline)
+
+            power_ipsi = mean(Pxx(:,1)); % Ch8 ==> C3
+            log2_ERS_ipsi = log2(power_ipsi/power_rest);
+
+            LI =  -(log2_ERS_ipsi - log2_ERS_contra);
         else
-            NF_bar = [xCenter - line_width_pix/2 + log_power_ratio_in_pixels
+            error('Cue location not properly defined')
+        end
+
+
+        % draw right arrow 
+        NF_bar_right = [xCenter + line_width_pix/2
+            , yCenter - fix_cross_dim_pix/2
+            , xCenter + line_width_pix/2 + LI
+            , yCenter + fix_cross_dim_pix/2];
+
+        NF_bar_left = [xCenter - line_width_pix/2 + LI
             , yCenter - fix_cross_dim_pix/2
             , xCenter - line_width_pix/2 
             , yCenter + fix_cross_dim_pix/2];
+
+        if LI > 0
+            NF_bar = NF_bar_right;
+        else
+            NF_bar = NF_bar_left;
         end
-        
-        % Draw NF bar
+
+        % Draw NF bar 
         Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
         Screen('FillRect', window, NF_color, NF_bar);
-       
+
         % Flip to the screen
-        vbl = Screen('Flip', window, vbl + (NF_wait_frames - 0.5) * ifi);
+        vbl = Screen('Flip', window);
+
+        % Flip to the screen
+        for frame = 1:NF_time_frames-1
+
+            % get data from the inlet
+            % this keeps pulling 'chunks' as though inlet is just a place to look for them
+            [temp_data, ts] = inlet.pull_chunk();
+
+            % temp data has data from multiple time points (rows) for each
+            % channel (columns)
+            if size(temp_data, 2) > DATA_POINTS - 1
+                new_points = temp_data(CHANNELS_OF_INTEREST, size(temp_data, 2)-DATA_POINTS+1:end);
+            else 
+                new_points = temp_data(CHANNELS_OF_INTEREST, :);
+            end
+            % resolve length of data points
+            new_length = size(new_points,2);
+            % shift into buffer
+            % this temporarily stores recent data, making room for the newest data
+            data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
+            data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
+
+            % remove DC offset
+            % detrend removes the mean value or linear trend from a vector or matrix, usually for FFT processing
+            % it basically just transposes to zero - you can see this by comparing
+            % graphs
+            display_buffer = detrend(data_buffer.');
+
+            [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
+            if strcmp(cue_loc, 'right')
+                power_contra = mean(Pxx(:,1)); % Ch8 ==> C3
+                log2_ERS_contra = log2(power_contra/power_rest); % where positive means syncronisation (increased power relative to baseline)
+                
+                power_ipsi = mean(Pxx(:,2)); % Ch12 ==> C4
+                log2_ERS_ipsi = log2(power_ipsi/power_rest);
+                
+                LI = log2_ERS_ipsi - log2_ERS_contra;
+                
+            elseif strcmp(cue_loc, 'left')
+                power_contra = mean(Pxx(:,2)); % Ch12 ==> C4 
+                log2_ERS_contra = log2(power_contra/power_rest); % where positive means syncronisation (increased power relative to baseline)
+                
+                power_ipsi = mean(Pxx(:,1)); % Ch8 ==> C3
+                log2_ERS_ipsi = log2(power_ipsi/power_rest);
+                
+                LI =  -(log2_ERS_ipsi - log2_ERS_contra);
+            else
+                error('Cue location not properly defined')
+            end
+
+            if LI > 0
+                NF_bar = [xCenter + line_width_pix/2
+                , yCenter - fix_cross_dim_pix/2
+                , xCenter + line_width_pix/2 + LI
+                , yCenter + fix_cross_dim_pix/2];
+            else
+                NF_bar = [xCenter - line_width_pix/2 + LI
+                , yCenter - fix_cross_dim_pix/2
+                , xCenter - line_width_pix/2 
+                , yCenter + fix_cross_dim_pix/2];
+            end
+
+            % Draw NF bar
+            Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
+            Screen('FillRect', window, NF_color, NF_bar);
+
+            % Flip to the screen
+            vbl = Screen('Flip', window, vbl + (NF_wait_frames - 0.5) * ifi);
+
+        end
+        %----------------------------------------------------------------------
+
+
+        %------------------- End of Experiment --------------------------------
+        if trial == 4
+
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'You Have Succesfully Completed The Experiment' ,...
+            'center', 'center', white );
+            Screen('Flip', window);
+            tic;
+            while toc < 3 end
+
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'The Experimenter Should Be With You Shortly',...
+            'center', 'center', white );
+            Screen('Flip', window);
+            KbStrokeWait; 
+
+        end
+        %----------------------------------------------------------------------
 
     end
-    %----------------------------------------------------------------------
-    
-    
-    %------------------- End of Experiment --------------------------------
-    if trial == 4
-        
-        Screen('TextSize', window, 60); 
-        DrawFormattedText(window, 'You Have Succesfully Completed The Experiment' ,...
-        'center', 'center', white );
-        Screen('Flip', window);
-        tic;
-        while toc < 3 end
-         
-        Screen('TextSize', window, 60); 
-        DrawFormattedText(window, 'The Experimenter Should Be With You Shortly',...
-        'center', 'center', white );
-        Screen('Flip', window);
-        KbStrokeWait; 
-        
-    end
-    %----------------------------------------------------------------------
-    
+
+    % Clear the screen
+    sca;
+catch
+    sca;
+    psychrethrow(psychlasterror);
 end
-    
-% Clear the screen
-sca;
 
 
