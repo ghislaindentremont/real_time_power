@@ -97,6 +97,8 @@ try
     %----------------------------------------------------------------------
 
     NF_color = [0 0 1];
+    
+    LI_scale = 200;
 
 
 
@@ -187,6 +189,7 @@ try
     FS = inlet.info.nominal_srate(); % apperently the sampling rate is 128 Hz
 
     
+    
     %----------------------------------------------------------------------
     %                            Filters
     %----------------------------------------------------------------------
@@ -226,22 +229,32 @@ try
             power_rest_list = [];
 
             disp('Resting EEG Aquisition...')
-            Screen('Flip', window);
+            vbl = Screen('Flip', window);
             
             % Flip to the screen
             for frame = 1:baseline_time_frames-1
                 
+                % baseline EEG aquisition 
+                Screen('TextSize', window, 36); 
+                DrawFormattedText(window, 'Please Relax With Your Eyes Open',...
+                'center', 'center', white );
+                
                 [temp_data, ts] = inlet.pull_chunk();
+                
+                if size(temp_data, 2) > DATA_POINTS - 1
+                    new_points = temp_data(CHANNELS_OF_INTEREST, size(temp_data, 2)-DATA_POINTS+1:end);
+                else 
+                    new_points = temp_data(CHANNELS_OF_INTEREST, :);
+                end
 
-                new_points = temp_data(CHANNELS_OF_INTEREST, :);
                 new_length = size(new_points,2);
 
                 data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
                 data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
 
 %                 display_buffer = detrend(data_buffer.');
-                data_buffer = data_buffer.';
-                display_buffer = filter(b,a,data_buffer);
+                data_buffer2 = data_buffer.';
+                display_buffer = filter(b,a,data_buffer2);
 
                 [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
                 
@@ -352,8 +365,8 @@ try
         % it basically just transposes to zero - you can see this by comparing
         % graphs
 %         display_buffer = detrend(data_buffer.');
-        data_buffer = data_buffer.';
-        display_buffer = filter(b,a,data_buffer);
+        data_buffer2 = data_buffer.';
+        display_buffer = filter(b,a,data_buffer2);
         
         disp('NEED TO CONFIRM DIRECTIONALITY OF LI')
         [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
@@ -378,14 +391,21 @@ try
             error('Cue location not properly defined')
         end
 
-
+        LI_pix = LI * LI_scale;
+        
+        if LI_pix > xCenter - line_width_pix/2 
+            LI_pix = xCenter - line_width_pix/2;
+        elseif LI_pix < -(xCenter - line_width_pix/2)
+            LI_pix = -(xCenter - line_width_pix/2);
+        end
+            
         % draw right arrow 
         NF_bar_right = [xCenter + line_width_pix/2
             , yCenter - fix_cross_dim_pix/2
-            , xCenter + line_width_pix/2 + LI
+            , xCenter + line_width_pix/2 + LI_pix;
             , yCenter + fix_cross_dim_pix/2];
 
-        NF_bar_left = [xCenter - line_width_pix/2 + LI
+        NF_bar_left = [xCenter - line_width_pix/2 + LI_pix;
             , yCenter - fix_cross_dim_pix/2
             , xCenter - line_width_pix/2 
             , yCenter + fix_cross_dim_pix/2];
@@ -399,7 +419,7 @@ try
         % Draw NF bar 
         Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
         Screen('FillRect', window, NF_color, NF_bar);
-
+        
         % Flip to the screen
         vbl = Screen('Flip', window);
 
@@ -428,7 +448,9 @@ try
             % detrend removes the mean value or linear trend from a vector or matrix, usually for FFT processing
             % it basically just transposes to zero - you can see this by comparing
             % graphs
-            display_buffer = detrend(data_buffer.');
+    %       display_buffer = detrend(data_buffer.');
+            data_buffer2 = data_buffer.';
+            display_buffer = filter(b,a,data_buffer2);
 
             [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
             if strcmp(cue_loc, 'right')
@@ -451,14 +473,22 @@ try
             else
                 error('Cue location not properly defined')
             end
+            
+            LI_pix = LI * LI_scale;
+
+            if LI_pix > xCenter - line_width_pix/2 
+                LI_pix = xCenter - line_width_pix/2;
+            elseif LI_pix < -(xCenter - line_width_pix/2)
+                LI_pix = -(xCenter - line_width_pix/2);
+            end
 
             if LI > 0
                 NF_bar = [xCenter + line_width_pix/2
                 , yCenter - fix_cross_dim_pix/2
-                , xCenter + line_width_pix/2 + LI
+                , xCenter + line_width_pix/2 + LI_pix
                 , yCenter + fix_cross_dim_pix/2];
             else
-                NF_bar = [xCenter - line_width_pix/2 + LI
+                NF_bar = [xCenter - line_width_pix/2 + LI_pix
                 , yCenter - fix_cross_dim_pix/2
                 , xCenter - line_width_pix/2 
                 , yCenter + fix_cross_dim_pix/2];
@@ -470,7 +500,7 @@ try
 
             % Flip to the screen
             vbl = Screen('Flip', window, vbl + (NF_wait_frames - 0.5) * ifi);
-
+            
         end
         %----------------------------------------------------------------------
 
