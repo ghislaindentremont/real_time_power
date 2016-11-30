@@ -204,8 +204,6 @@ try
 
     
 
-
-
     %----------------------------------------------------------------------
     %                       Experimental Loop
     %----------------------------------------------------------------------
@@ -368,7 +366,6 @@ try
         data_buffer2 = data_buffer.';
         display_buffer = filter(b,a,data_buffer2);
         
-        disp('NEED TO CONFIRM DIRECTIONALITY OF LI')
         [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
         if strcmp(cue_loc, 'right')
             power_contra = mean(Pxx(:,1)); % Ch8 ==> C3
@@ -377,7 +374,7 @@ try
             power_ipsi = mean(Pxx(:,2)); % Ch12 ==> C4
             log2_ERS_ipsi = log2(power_ipsi/power_rest);
 
-            LI = log2_ERS_ipsi - log2_ERS_contra;
+            LI = -(log2_ERS_ipsi - log2_ERS_contra);
 
         elseif strcmp(cue_loc, 'left')
             power_contra = mean(Pxx(:,2)); % Ch12 ==> C4 
@@ -386,7 +383,7 @@ try
             power_ipsi = mean(Pxx(:,1)); % Ch8 ==> C3
             log2_ERS_ipsi = log2(power_ipsi/power_rest);
 
-            LI =  -(log2_ERS_ipsi - log2_ERS_contra);
+            LI =  (log2_ERS_ipsi - log2_ERS_contra);
         else
             error('Cue location not properly defined')
         end
