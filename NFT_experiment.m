@@ -161,15 +161,21 @@ try
     % should be equal to FS defined in next block
     sampling_rate = 128;
 
-    MV_AVG_LENGTH = 1; % in seconds
-    DATA_POINTS = MV_AVG_LENGTH * sampling_rate;
+    AVG_LENGTH = 1; % in seconds
+    PAD_LENGTH = 0.5; 
+    
+    pad_points = round(PAD_LENGTH * sampling_rate);
+    
+    avg_points = round(AVG_LENGTH * sampling_rate);
+    
+    data_points = pad_points + avg_points;
 
     PSD_FREQS = 13:1:30; 
 
     % FIGURE OUT MAPPINGS
     CHANNELS_OF_INTEREST = [8, 12]; % C3 = Ch8; C4 = Ch12
 
-    data_buffer = zeros(length(CHANNELS_OF_INTEREST), DATA_POINTS); %pre-allocate data
+    data_buffer = zeros(length(CHANNELS_OF_INTEREST), data_points); %pre-allocate data
 
     % make sure that everything is on the path and LSL is loaded
     disp('Loading the library...');
@@ -200,8 +206,13 @@ try
     % 2nd order (2n, where n is first argument)
     % second argument must be between 0 and 1 (Nyquist - FS/2)
     [b, a] = butter(1,[lo hi]/(FS/2), 'bandpass');
-%     fvtool(b, a);
 
+    % use on power lines of 60 Hz
+    wo = 60/(FS/2);  
+    bw = wo/35;
+
+    [b2,a2] = iirnotch(wo,bw);
+    
     
 
     %----------------------------------------------------------------------
@@ -238,23 +249,8 @@ try
                 'center', 'center', white );
                 
                 [temp_data, ts] = inlet.pull_chunk();
-                
-                if size(temp_data, 2) > DATA_POINTS - 1
-                    new_points = temp_data(CHANNELS_OF_INTEREST, size(temp_data, 2)-DATA_POINTS+1:end);
-                else 
-                    new_points = temp_data(CHANNELS_OF_INTEREST, :);
-                end
-
-                new_length = size(new_points,2);
-
-                data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
-                data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
-
-%                 display_buffer = detrend(data_buffer.');
-                data_buffer2 = data_buffer.';
-                display_buffer = filter(b,a,data_buffer2);
-
-                [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
+            
+                [Pxx, Fxx] = get_power(temp_data);
                 
                 power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
                 
@@ -343,75 +339,12 @@ try
         % get data from the inlet
         % this keeps pulling 'chunks' as though inlet is just a place to look for them
         [temp_data, ts] = inlet.pull_chunk();
-
-        % temp data has data from multiple time points (rows) for each
-        % channel (columns)
-        if size(temp_data, 2) > DATA_POINTS - 1
-            new_points = temp_data(CHANNELS_OF_INTEREST, size(temp_data, 2)-DATA_POINTS+1:end);
-        else 
-            new_points = temp_data(CHANNELS_OF_INTEREST, :);
-        end
-        % resolve length of data points
-        new_length = size(new_points,2);
-        % shift into buffer
-        % this temporarily stores recent data, making room for the newest data
-        data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
-        data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
-
-        % remove DC offset
-        % detrend removes the mean value or linear trend from a vector or matrix, usually for FFT processing
-        % it basically just transposes to zero - you can see this by comparing
-        % graphs
-%         display_buffer = detrend(data_buffer.');
-        data_buffer2 = data_buffer.';
-        display_buffer = filter(b,a,data_buffer2);
         
-        [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
-        if strcmp(cue_loc, 'right')
-            power_contra = mean(Pxx(:,1)); % Ch8 ==> C3
-            log2_ERS_contra = log2(power_contra/power_rest); % where positive means syncronisation (increased power relative to baseline)
-
-            power_ipsi = mean(Pxx(:,2)); % Ch12 ==> C4
-            log2_ERS_ipsi = log2(power_ipsi/power_rest);
-
-            LI = (log2_ERS_ipsi - log2_ERS_contra);
-
-        elseif strcmp(cue_loc, 'left')
-            power_contra = mean(Pxx(:,2)); % Ch12 ==> C4 
-            log2_ERS_contra = log2(power_contra/power_rest); % where positive means syncronisation (increased power relative to baseline)
-
-            power_ipsi = mean(Pxx(:,1)); % Ch8 ==> C3
-            log2_ERS_ipsi = log2(power_ipsi/power_rest);
-
-            LI =  -(log2_ERS_ipsi - log2_ERS_contra);
-        else
-            error('Cue location not properly defined')
-        end
-
-        LI_pix = LI * LI_scale;
+        [Pxx, Fxx] = get_power(temp_data);
         
-        if LI_pix > xCenter - line_width_pix/2 
-            LI_pix = xCenter - line_width_pix/2;
-        elseif LI_pix < -(xCenter - line_width_pix/2)
-            LI_pix = -(xCenter - line_width_pix/2);
-        end
-            
-        % draw right arrow 
-        NF_bar_right = [xCenter + line_width_pix/2
-            , yCenter - fix_cross_dim_pix/2
-            , xCenter + line_width_pix/2 + LI_pix;
-            , yCenter + fix_cross_dim_pix/2];
-
-        NF_bar_left = [xCenter - line_width_pix/2 + LI_pix;
-            , yCenter - fix_cross_dim_pix/2
-            , xCenter - line_width_pix/2 
-            , yCenter + fix_cross_dim_pix/2];
-
-        if LI > 0
-            NF_bar = NF_bar_right;
-        else
-            NF_bar = NF_bar_left;
-        end
+        LI = get_LI(cue_loc);
+        
+        NF_bar = get_NF_bar(LI);
 
         % Draw NF bar 
         Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
@@ -427,70 +360,12 @@ try
             % this keeps pulling 'chunks' as though inlet is just a place to look for them
             [temp_data, ts] = inlet.pull_chunk();
 
-            % temp data has data from multiple time points (rows) for each
-            % channel (columns)
-            if size(temp_data, 2) > DATA_POINTS - 1
-                new_points = temp_data(CHANNELS_OF_INTEREST, size(temp_data, 2)-DATA_POINTS+1:end);
-            else 
-                new_points = temp_data(CHANNELS_OF_INTEREST, :);
-            end
-            % resolve length of data points
-            new_length = size(new_points,2);
-            % shift into buffer
-            % this temporarily stores recent data, making room for the newest data
-            data_buffer(:,1:DATA_POINTS-new_length) = data_buffer(:,new_length+1:end);
-            data_buffer(:,DATA_POINTS-new_length+1:end) = new_points;
-
-            % remove DC offset
-            % detrend removes the mean value or linear trend from a vector or matrix, usually for FFT processing
-            % it basically just transposes to zero - you can see this by comparing
-            % graphs
-    %       display_buffer = detrend(data_buffer.');
-            data_buffer2 = data_buffer.';
-            display_buffer = filter(b,a,data_buffer2);
-
-            [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
-            if strcmp(cue_loc, 'right')
-                power_contra = mean(Pxx(:,1)); % Ch8 ==> C3
-                log2_ERS_contra = log2(power_contra/power_rest); % where positive means syncronisation (increased power relative to baseline)
-                
-                power_ipsi = mean(Pxx(:,2)); % Ch12 ==> C4
-                log2_ERS_ipsi = log2(power_ipsi/power_rest);
-                
-                LI = (log2_ERS_ipsi - log2_ERS_contra);
-                
-            elseif strcmp(cue_loc, 'left')
-                power_contra = mean(Pxx(:,2)); % Ch12 ==> C4 
-                log2_ERS_contra = log2(power_contra/power_rest); % where positive means syncronisation (increased power relative to baseline)
-                
-                power_ipsi = mean(Pxx(:,1)); % Ch8 ==> C3
-                log2_ERS_ipsi = log2(power_ipsi/power_rest);
-                
-                LI =  -(log2_ERS_ipsi - log2_ERS_contra);
-            else
-                error('Cue location not properly defined')
-            end
+            [Pxx, Fxx] = get_power(temp_data);
             
-            LI_pix = LI * LI_scale;
-
-            if LI_pix > xCenter - line_width_pix/2 
-                LI_pix = xCenter - line_width_pix/2;
-            elseif LI_pix < -(xCenter - line_width_pix/2)
-                LI_pix = -(xCenter - line_width_pix/2);
-            end
-
-            if LI > 0
-                NF_bar = [xCenter + line_width_pix/2
-                , yCenter - fix_cross_dim_pix/2
-                , xCenter + line_width_pix/2 + LI_pix
-                , yCenter + fix_cross_dim_pix/2];
-            else
-                NF_bar = [xCenter - line_width_pix/2 + LI_pix
-                , yCenter - fix_cross_dim_pix/2
-                , xCenter - line_width_pix/2 
-                , yCenter + fix_cross_dim_pix/2];
-            end
-
+            LI = get_LI(cue_loc);
+        
+            NF_bar = get_NF_bar(LI);
+        
             % Draw NF bar
             Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
             Screen('FillRect', window, NF_color, NF_bar);
