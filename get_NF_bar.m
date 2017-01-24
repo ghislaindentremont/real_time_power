@@ -1,23 +1,23 @@
-function NF_bar = get_NF_bar(LI)
+function NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX)
 
-    LI_pix = LI * LI_scale;
+    LI_pix = LI * LI_SCALE;
         
-    if LI_pix > xCenter - line_width_pix/2 
-        LI_pix = xCenter - line_width_pix/2;
-    elseif LI_pix < -(xCenter - line_width_pix/2)
-        LI_pix = -(xCenter - line_width_pix/2);
+    if LI_pix > xCenter - LINE_WIDTH_PIX/2 
+        LI_pix = xCenter - LINE_WIDTH_PIX/2;
+    elseif LI_pix < -(xCenter - LINE_WIDTH_PIX/2)
+        LI_pix = -(xCenter - LINE_WIDTH_PIX/2);
     end
 
     % draw right arrow 
-    NF_bar_right = [xCenter + line_width_pix/2
-        , yCenter - fix_cross_dim_pix/2
-        , xCenter + line_width_pix/2 + LI_pix;
-        , yCenter + fix_cross_dim_pix/2];
+    NF_bar_right = [xCenter + LINE_WIDTH_PIX/2
+        , yCenter - FIX_CROSS_DIM_PIX/2
+        , xCenter + LINE_WIDTH_PIX/2 + LI_pix;
+        , yCenter + FIX_CROSS_DIM_PIX/2];
 
-    NF_bar_left = [xCenter - line_width_pix/2 + LI_pix;
-        , yCenter - fix_cross_dim_pix/2
-        , xCenter - line_width_pix/2 
-        , yCenter + fix_cross_dim_pix/2];
+    NF_bar_left = [xCenter - LINE_WIDTH_PIX/2 + LI_pix;
+        , yCenter - FIX_CROSS_DIM_PIX/2
+        , xCenter - LINE_WIDTH_PIX/2 
+        , yCenter + FIX_CROSS_DIM_PIX/2];
 
     if LI > 0
         NF_bar = NF_bar_right;

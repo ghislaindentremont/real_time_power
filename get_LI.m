@@ -1,4 +1,4 @@
-function LI = get_LI(cue_loc)
+function LI = get_LI(cue_loc, Pxx, power_rest)
 
     if strcmp(cue_loc, 'right')
         power_contra = mean(Pxx(:,1)); % Ch8 ==> C3

@@ -44,19 +44,19 @@ try
     %----------------------------------------------------------------------
 
     % Here we set the size of the arms of our fixation cross
-    fix_cross_dim_pix = 40*2;
+    FIX_CROSS_DIM_PIX = 40*2;
 
     % Now we set the coordinates (these are all relative to zero we will let
     % the drawing routine center the cross in the center of our monitor for us)
-    x_fix_coords = [-fix_cross_dim_pix fix_cross_dim_pix 0 0];
-    y_fix_coords = [0 0 -fix_cross_dim_pix fix_cross_dim_pix];
+    x_fix_coords = [-FIX_CROSS_DIM_PIX FIX_CROSS_DIM_PIX 0 0];
+    y_fix_coords = [0 0 -FIX_CROSS_DIM_PIX FIX_CROSS_DIM_PIX];
     all_fix_coords = [x_fix_coords; y_fix_coords];
 
     % Set the line width for our fixation cross
-    line_width_pix = 4;
+    LINE_WIDTH_PIX = 4;
 
     % make it green 
-    fix_color = [0 1 0];
+    FIX_COLOR = [0 1 0];
 
     % just vertical line
     all_cue_coords = [[0 0 0 0]; y_fix_coords];
@@ -68,27 +68,27 @@ try
     %----------------------------------------------------------------------
 
     % arrow color - red 
-    arr_color = [1 0 0];
+    ARR_COLOR = [1 0 0];
 
     % draw right arrow 
-    rarrow_base = [xCenter + line_width_pix/2
-        , yCenter - fix_cross_dim_pix/2
-        , xCenter + line_width_pix/2 + fix_cross_dim_pix
-        , yCenter + fix_cross_dim_pix/2];
+    rarrow_base = [xCenter + LINE_WIDTH_PIX/2
+        , yCenter - FIX_CROSS_DIM_PIX/2
+        , xCenter + LINE_WIDTH_PIX/2 + FIX_CROSS_DIM_PIX
+        , yCenter + FIX_CROSS_DIM_PIX/2];
 
-    rarrow_spear = [[xCenter + line_width_pix/2 + fix_cross_dim_pix, yCenter + fix_cross_dim_pix];
-        [xCenter + line_width_pix/2 + fix_cross_dim_pix*2, yCenter];
-        [xCenter + line_width_pix/2 + fix_cross_dim_pix, yCenter - fix_cross_dim_pix]];
+    rarrow_spear = [[xCenter + LINE_WIDTH_PIX/2 + FIX_CROSS_DIM_PIX, yCenter + FIX_CROSS_DIM_PIX];
+        [xCenter + LINE_WIDTH_PIX/2 + FIX_CROSS_DIM_PIX*2, yCenter];
+        [xCenter + LINE_WIDTH_PIX/2 + FIX_CROSS_DIM_PIX, yCenter - FIX_CROSS_DIM_PIX]];
 
     % draw right arrow 
-    larrow_base = [xCenter - line_width_pix/2 - fix_cross_dim_pix
-        , yCenter - fix_cross_dim_pix/2
-        , xCenter - line_width_pix/2 
-        , yCenter + fix_cross_dim_pix/2];
+    larrow_base = [xCenter - LINE_WIDTH_PIX/2 - FIX_CROSS_DIM_PIX
+        , yCenter - FIX_CROSS_DIM_PIX/2
+        , xCenter - LINE_WIDTH_PIX/2 
+        , yCenter + FIX_CROSS_DIM_PIX/2];
 
-    larrow_spear = [[xCenter - line_width_pix/2 - fix_cross_dim_pix, yCenter + fix_cross_dim_pix];
-        [xCenter - line_width_pix/2 - fix_cross_dim_pix*2, yCenter];
-        [xCenter - line_width_pix/2 - fix_cross_dim_pix, yCenter - fix_cross_dim_pix]];
+    larrow_spear = [[xCenter - LINE_WIDTH_PIX/2 - FIX_CROSS_DIM_PIX, yCenter + FIX_CROSS_DIM_PIX];
+        [xCenter - LINE_WIDTH_PIX/2 - FIX_CROSS_DIM_PIX*2, yCenter];
+        [xCenter - LINE_WIDTH_PIX/2 - FIX_CROSS_DIM_PIX, yCenter - FIX_CROSS_DIM_PIX]];
 
 
 
@@ -96,9 +96,9 @@ try
     %                         NF Bar 
     %----------------------------------------------------------------------
 
-    NF_color = [0 0 1];
+    NF_COLOR = [0 0 1];
     
-    LI_scale = 200;
+    LI_SCALE = 200;
 
 
 
@@ -107,24 +107,24 @@ try
     %----------------------------------------------------------------------
 
     % Fixation interval time in seconds and frames
-    fix_time = 2;
-    fix_time_frames = round(fix_time / ifi);
+    FIX_TIME = 2;
+    fix_time_frames = round(FIX_TIME / ifi);
 
     % Cue interval time in seconds and frames 
-    cue_time = 1.25;
-    cue_time_frames = round(cue_time / ifi);
+    CUE_TIME = 1.25;
+    cue_time_frames = round(CUE_TIME / ifi);
 
     % Numer of frames to wait before re-drawing
-    wait_frames = 1;
+    WAIT_FRAMES = 1;
 
     % NF time frames 
-    NF_time = 5;
-    NF_wait_frames = 3;
-    NF_time_frames = round(NF_time / ifi / NF_wait_frames);
+    NF_TIME = 5;
+    NF_WAIT_FRAMES = 3;
+    NF_time_frames = round(NF_TIME / ifi / NF_WAIT_FRAMES);
 
     % Baseline duration
-    baseline_time = 2;
-    baseline_time_frames = round(baseline_time / ifi / NF_wait_frames);
+    BASELINE_TIME = 2;
+    baseline_time_frames = round(BASELINE_TIME / ifi / NF_WAIT_FRAMES);
 
 
 
@@ -136,8 +136,8 @@ try
     cue_locs_list = {'left', 'right'};
     cue_locs = [1, 2];
 
-    trials_per_condition = 2;
-    cond_matrix = repmat(cue_locs, 1, trials_per_condition);
+    TRIALS_PER_CONDITION = 2;
+    cond_matrix = repmat(cue_locs, 1, TRIALS_PER_CONDITION);
 
     % Get the size of the matrix
     [~, num_trials] = size(cond_matrix);
@@ -172,7 +172,6 @@ try
 
     PSD_FREQS = 13:1:30; 
 
-    % FIGURE OUT MAPPINGS
     CHANNELS_OF_INTEREST = [8, 12]; % C3 = Ch8; C4 = Ch12
 
     data_buffer = zeros(length(CHANNELS_OF_INTEREST), data_points); %pre-allocate data
@@ -200,25 +199,24 @@ try
     %                            Filters
     %----------------------------------------------------------------------
     
-    lo = 4;  % keeps 13 Hz ~0 dB
-    hi = 60;
+    LO = 4;  % keeps 13 Hz ~0 dB
+    HI = 60;
     
     % 2nd order (2n, where n is first argument)
     % second argument must be between 0 and 1 (Nyquist - FS/2)
-    [b, a] = butter(1,[lo hi]/(FS/2), 'bandpass');
+    [b, a] = butter(1,[LO HI]/(FS/2), 'bandpass');
 
     % use on power lines of 60 Hz
     wo = 60/(FS/2);  
     bw = wo/35;
 
     [b2,a2] = iirnotch(wo,bw);
-    
+            
     
 
     %----------------------------------------------------------------------
     %                       Experimental Loop
     %----------------------------------------------------------------------
-
 
     for trial = 1:num_trials
 
@@ -250,12 +248,12 @@ try
                 
                 [temp_data, ts] = inlet.pull_chunk();
             
-                [Pxx, Fxx] = get_power(temp_data);
+                [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
                 
                 power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
                 
-                                        % Flip to the screen
-                vbl = Screen('Flip', window, vbl + (NF_wait_frames - 0.5) * ifi);
+                % Flip to the screen
+                vbl = Screen('Flip', window, vbl + (NF_WAIT_FRAMES - 0.5) * ifi);
 
             end
 
@@ -276,25 +274,30 @@ try
 
         %----------------------------ITI --------------------------------------
         Screen('FillRect', window, black, window_rect );
-        Screen('Flip', window);
 
         iti = cond_matrix_shuffled(2,trial);
-        tic;
-        while toc < iti end
+        iti_time_frames = round(iti / ifi / WAIT_FRAMES);
+        
+        vbl = Screen('Flip', window);
+                
+        for frame = 1:iti_time_frames-1
+            Screen('FillRect', window, black, window_rect );
+            vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
+        end
         %----------------------------------------------------------------------
 
 
         %--------------------- Draw the fixation cross ------------------------
-        Screen('DrawLines', window, all_fix_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
+        Screen('DrawLines', window, all_fix_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
         vbl = Screen('Flip', window); 
 
         % Flip to the screen
         for frame = 1:fix_time_frames-1
             % Draw the fixation point
-            Screen('DrawLines', window, all_fix_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
+            Screen('DrawLines', window, all_fix_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
 
             % Flip to the screen
-            vbl = Screen('Flip', window, vbl + (wait_frames - 0.5) * ifi);
+            vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
         end
         %----------------------------------------------------------------------
 
@@ -315,21 +318,21 @@ try
         end
 
         % Draw cue 
-        Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
-        Screen('FillRect', window, arr_color, arrow_base);
-        Screen('FillPoly', window, arr_color, arrow_spear, 1);
+        Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+        Screen('FillRect', window, ARR_COLOR, arrow_base);
+        Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
 
         % Flip to the screen
         vbl = Screen('Flip', window);
 
         % Flip to the screen
         for frame = 1:cue_time_frames-1
-            Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
-            Screen('FillRect', window, arr_color, arrow_base);
-            Screen('FillPoly', window, arr_color, arrow_spear, 1);
+            Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+            Screen('FillRect', window, ARR_COLOR, arrow_base);
+            Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
 
             % Flip to the screen
-            vbl = Screen('Flip', window, vbl + (wait_frames - 0.5) * ifi);
+            vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
         end
         %----------------------------------------------------------------------
 
@@ -339,16 +342,16 @@ try
         % get data from the inlet
         % this keeps pulling 'chunks' as though inlet is just a place to look for them
         [temp_data, ts] = inlet.pull_chunk();
+         
+        [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
         
-        [Pxx, Fxx] = get_power(temp_data);
+        LI = get_LI(cue_loc, Pxx, power_rest);
         
-        LI = get_LI(cue_loc);
+        NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX);
         
-        NF_bar = get_NF_bar(LI);
-
         % Draw NF bar 
-        Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
-        Screen('FillRect', window, NF_color, NF_bar);
+        Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+        Screen('FillRect', window, NF_COLOR, NF_bar); 
         
         % Flip to the screen
         vbl = Screen('Flip', window);
@@ -360,18 +363,18 @@ try
             % this keeps pulling 'chunks' as though inlet is just a place to look for them
             [temp_data, ts] = inlet.pull_chunk();
 
-            [Pxx, Fxx] = get_power(temp_data);
+            [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
             
-            LI = get_LI(cue_loc);
+            LI = get_LI(cue_loc, Pxx, power_rest);
         
-            NF_bar = get_NF_bar(LI);
+            NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX);
         
             % Draw NF bar
-            Screen('DrawLines', window, all_cue_coords, line_width_pix, fix_color, [xCenter yCenter], 2);
-            Screen('FillRect', window, NF_color, NF_bar);
+            Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+            Screen('FillRect', window, NF_COLOR, NF_bar);
 
             % Flip to the screen
-            vbl = Screen('Flip', window, vbl + (NF_wait_frames - 0.5) * ifi);
+            vbl = Screen('Flip', window, vbl + (NF_WAIT_FRAMES - 0.5) * ifi);
             
         end
         %----------------------------------------------------------------------
