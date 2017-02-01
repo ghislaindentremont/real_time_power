@@ -98,7 +98,7 @@ try
 
     NF_COLOR = [0 0 1];
     
-    LI_SCALE = 200;
+    LI_SCALE = 20;
 
 
 
@@ -123,7 +123,7 @@ try
     NF_time_frames = round(NF_TIME / ifi / NF_WAIT_FRAMES);
 
     % Baseline duration
-    BASELINE_TIME = 2;
+    BASELINE_TIME = 5;
     baseline_time_frames = round(BASELINE_TIME / ifi / NF_WAIT_FRAMES);
 
 
@@ -136,7 +136,7 @@ try
     cue_locs_list = {'left', 'right'};
     cue_locs = [1, 2];
 
-    TRIALS_PER_CONDITION = 2;
+    TRIALS_PER_CONDITION = 1;
     cond_matrix = repmat(cue_locs, 1, TRIALS_PER_CONDITION);
 
     % Get the size of the matrix
@@ -177,6 +177,8 @@ try
     data_buffer = zeros(length(CHANNELS_OF_INTEREST), data_points); %pre-allocate data
 
     % make sure that everything is on the path and LSL is loaded
+    addpath(genpath('liblsl-Matlab'))
+    
     disp('Loading the library...');
     lib = lsl_loadlib();
 
@@ -248,8 +250,63 @@ try
                 
                 [temp_data, ts] = inlet.pull_chunk();
             
-                [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
+%                 [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
                 
+                if size(temp_data, 2) > data_points - 1
+                    new_points = temp_data(CHANNELS_OF_INTEREST, size(temp_data, 2)-data_points+1:end);
+                else 
+                    new_points = temp_data(CHANNELS_OF_INTEREST, :);
+                end
+
+                new_length = size(new_points,2);
+
+                data_buffer(:,1:data_points-new_length) = data_buffer(:,new_length+1:end);
+                data_buffer(:,data_points-new_length+1:end) = new_points;
+              
+                data_buffer2 = data_buffer.';
+                
+                display_buffer3 = filter(b,a, data_buffer2);  % butterworth
+                display_buffer4 = filter(b2,a2, display_buffer3);  % notch filter 
+
+                display_buffer = display_buffer4((pad_points+1):data_points, :);
+
+%                 if frame > baseline_time_frames - 2
+%                     
+%                     
+%                     [Pxx, Fxx] = pwelch(data_buffer2((pad_points+1):data_points, :), [], [], 1:70, FS, 'power');
+%                     figure
+%                     plot(Fxx, Pxx)
+%                     title('before filter')
+%                     
+% %                     figure
+% %                     plot(data_buffer2)
+% %                     title('pre filter')
+% %                     figure
+% %                     plot(data_buffer2((pad_points+1):data_points, :))
+% %                     title('pre filter padding')
+% %                     
+% %                     figure
+% %                     plot(display_buffer3)
+% %                     title('post butter')
+% %                     figure
+% %                     plot(display_buffer3((pad_points+1):data_points, :))
+% %                     title('post butter padding')
+% %                     
+% %                     figure
+% %                     plot(display_buffer4)
+% %                     title('post notch')
+% %                     figure
+% %                     plot(display_buffer4((pad_points+1):data_points, :))
+% %                     title('post notch padding')
+%                     
+%                     [Pxx, Fxx] = pwelch(display_buffer, [], [], 1:70, FS, 'power');
+%                     figure
+%                     plot(Fxx, Pxx)
+%                     title('after filter')
+%                 end
+
+                [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
+
                 power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
                 
                 % Flip to the screen

@@ -80,5 +80,6 @@ title('filtered')
 
 
 %% Get power of final signal
-[Pxx, Fxx] = pwelch(y3, [], [], PSD_FREQS, FS, 'power');
+[Pxx, Fxx] = pwelch(y3(idx:end), [], [], PSD_FREQS, FS, 'power');
 plot(Fxx, Pxx)
+sum(Pxx(12:16))

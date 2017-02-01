@@ -16,7 +16,7 @@ function [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer
     display_buffer3 = filter(b,a, data_buffer2);  % butterworth
     display_buffer4 = filter(b2,a2, display_buffer3);  % notch filter 
 
-    display_buffer = display_buffer4((pad_points+1):data_points);
+    display_buffer = display_buffer4((pad_points+1):data_points, :);
 
     [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
 
