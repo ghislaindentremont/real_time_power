@@ -106,25 +106,21 @@ try
     %                       Timing Information
     %----------------------------------------------------------------------
 
-    % Fixation interval time in seconds and frames
-    FIX_TIME = 2;
-    fix_time_frames = round(FIX_TIME / ifi);
-
-    % Cue interval time in seconds and frames 
-    CUE_TIME = 1.25;
-    cue_time_frames = round(CUE_TIME / ifi);
-
     % Numer of frames to wait before re-drawing
     WAIT_FRAMES = 1;
-
+    
     % NF time frames 
     NF_TIME = 5;
     NF_WAIT_FRAMES = 3;
     NF_time_frames = round(NF_TIME / ifi / NF_WAIT_FRAMES);
+    
+    % Fixation interval time in seconds and frames
+    FIX_TIME = 2;
+    fix_time_frames = round(FIX_TIME / ifi / NF_WAIT_FRAMES);
 
-    % Baseline duration
-    BASELINE_TIME = 5;
-    baseline_time_frames = round(BASELINE_TIME / ifi / NF_WAIT_FRAMES);
+    % Cue interval time in seconds and frames 
+    CUE_TIME = 1.25;
+    cue_time_frames = round(CUE_TIME / ifi/ WAIT_FRAMES);
 
 
 
@@ -136,7 +132,7 @@ try
     cue_locs_list = {'left', 'right'};
     cue_locs = [1, 2];
 
-    TRIALS_PER_CONDITION = 1;
+    TRIALS_PER_CONDITION = 3;
     cond_matrix = repmat(cue_locs, 1, TRIALS_PER_CONDITION);
 
     % Get the size of the matrix
@@ -151,6 +147,17 @@ try
 
     % final condition matrix
     cond_matrix_shuffled = [cond_matrix_shuffled2; itis];
+    
+    
+    
+%     ----------------------------------------------------------------------
+%                         Make a response matrix
+%     ----------------------------------------------------------------------
+% 
+%     This matrix is long format so has as many rows as trials 
+%     it has the following columns:
+%     
+%     respMat = nan(numTrials, );
 
 
 
@@ -221,112 +228,15 @@ try
     %----------------------------------------------------------------------
 
     for trial = 1:num_trials
-
-        %---------------- Baseline EEG Aquisition -------------------------
-        if trial == 1
-            Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Press Any Key To Begin The Experiment',...
+                
+        
+        %-------------------Trial Initiation message --------------------------
+        Screen('TextSize', window, 36; 
+        DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
             'center', 'center', white );
-            Screen('Flip', window);
-            KbStrokeWait; 
-
-            % baseline EEG aquisition 
-            Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Please Relax With Your Eyes Open',...
-            'center', 'center', white );
-
-            power_rest_list = [];
-
-            disp('Resting EEG Aquisition...')
-            vbl = Screen('Flip', window);
-            
-            % Flip to the screen
-            for frame = 1:baseline_time_frames-1
-                
-                % baseline EEG aquisition 
-                Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'Please Relax With Your Eyes Open',...
-                'center', 'center', white );
-                
-                [temp_data, ts] = inlet.pull_chunk();
-            
-%                 [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
-                
-                if size(temp_data, 2) > data_points - 1
-                    new_points = temp_data(CHANNELS_OF_INTEREST, size(temp_data, 2)-data_points+1:end);
-                else 
-                    new_points = temp_data(CHANNELS_OF_INTEREST, :);
-                end
-
-                new_length = size(new_points,2);
-
-                data_buffer(:,1:data_points-new_length) = data_buffer(:,new_length+1:end);
-                data_buffer(:,data_points-new_length+1:end) = new_points;
-              
-                data_buffer2 = data_buffer.';
-                
-                display_buffer3 = filter(b,a, data_buffer2);  % butterworth
-                display_buffer4 = filter(b2,a2, display_buffer3);  % notch filter 
-
-                display_buffer = display_buffer4((pad_points+1):data_points, :);
-
-%                 if frame > baseline_time_frames - 2
-%                     
-%                     
-%                     [Pxx, Fxx] = pwelch(data_buffer2((pad_points+1):data_points, :), [], [], 1:70, FS, 'power');
-%                     figure
-%                     plot(Fxx, Pxx)
-%                     title('before filter')
-%                     
-% %                     figure
-% %                     plot(data_buffer2)
-% %                     title('pre filter')
-% %                     figure
-% %                     plot(data_buffer2((pad_points+1):data_points, :))
-% %                     title('pre filter padding')
-% %                     
-% %                     figure
-% %                     plot(display_buffer3)
-% %                     title('post butter')
-% %                     figure
-% %                     plot(display_buffer3((pad_points+1):data_points, :))
-% %                     title('post butter padding')
-% %                     
-% %                     figure
-% %                     plot(display_buffer4)
-% %                     title('post notch')
-% %                     figure
-% %                     plot(display_buffer4((pad_points+1):data_points, :))
-% %                     title('post notch padding')
-%                     
-%                     [Pxx, Fxx] = pwelch(display_buffer, [], [], 1:70, FS, 'power');
-%                     figure
-%                     plot(Fxx, Pxx)
-%                     title('after filter')
-%                 end
-
-                [Pxx, Fxx] = pwelch(display_buffer, [], [], PSD_FREQS, FS, 'power');
-
-                power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
-                
-                % Flip to the screen
-                vbl = Screen('Flip', window, vbl + (NF_WAIT_FRAMES - 0.5) * ifi);
-
-            end
-
-            power_rest = mean(power_rest_list); 
-           
-        end
+        Screen('Flip', window);
+        KbStrokeWait; 
         %----------------------------------------------------------------------
-
-
-    %     %-------------------Trial Initiation message --------------------------
-    %     Screen('TextSize', window, 36; 
-    %     DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
-    %         'center', 'center', white );
-    %     Screen('Flip', window);
-    %     KbStrokeWait; 
-    %     %----------------------------------------------------------------------
 
 
         %----------------------------ITI --------------------------------------
@@ -335,9 +245,17 @@ try
         iti = cond_matrix_shuffled(2,trial);
         iti_time_frames = round(iti / ifi / WAIT_FRAMES);
         
+        % warm up data buffer 
+        [temp_data, ts] = inlet.pull_chunk();
+        [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
+        
         vbl = Screen('Flip', window);
                 
         for frame = 1:iti_time_frames-1
+            % warm up data buffer 
+            [temp_data, ts] = inlet.pull_chunk();
+            [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
+            
             Screen('FillRect', window, black, window_rect );
             vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
         end
@@ -345,16 +263,32 @@ try
 
 
         %--------------------- Draw the fixation cross ------------------------
+        % set power to zero
+        power_rest_list = 0;
+        
+        [temp_data, ts] = inlet.pull_chunk();
+
+        [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
+
+        power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
+        
         Screen('DrawLines', window, all_fix_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
         vbl = Screen('Flip', window); 
 
         % Flip to the screen
         for frame = 1:fix_time_frames-1
+            
+            [temp_data, ts] = inlet.pull_chunk();
+
+            [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
+
+            power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
+            
             % Draw the fixation point
             Screen('DrawLines', window, all_fix_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
 
             % Flip to the screen
-            vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
+            vbl = Screen('Flip', window, vbl + (NF_WAIT_FRAMES - 0.5) * ifi);
         end
         %----------------------------------------------------------------------
 
@@ -402,6 +336,8 @@ try
          
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
         
+        power_rest = mean(power_rest_list);
+        
         LI = get_LI(cue_loc, Pxx, power_rest);
         
         NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX);
@@ -436,27 +372,22 @@ try
         end
         %----------------------------------------------------------------------
 
-
-        %------------------- End of Experiment --------------------------------
-        if trial == 4
-
-            Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'You Have Succesfully Completed The Experiment' ,...
-            'center', 'center', white );
-            Screen('Flip', window);
-            tic;
-            while toc < 3 end
-
-            Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'The Experimenter Should Be With You Shortly',...
-            'center', 'center', white );
-            Screen('Flip', window);
-            KbStrokeWait; 
-
-        end
-        %----------------------------------------------------------------------
-
     end
+    
+    %------------------- End of Experiment --------------------------------
+    Screen('TextSize', window, 36); 
+    DrawFormattedText(window, 'You Have Succesfully Completed The Experiment' ,...
+    'center', 'center', white );
+    Screen('Flip', window);
+    tic;
+    while toc < 3 end
+
+    Screen('TextSize', window, 36); 
+    DrawFormattedText(window, 'The Experimenter Should Be With You Shortly',...
+    'center', 'center', white );
+    Screen('Flip', window);
+    KbStrokeWait; 
+    %----------------------------------------------------------------------
 
     % Clear the screen
     sca;
