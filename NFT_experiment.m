@@ -37,6 +37,59 @@ try
     % Set up alpha-blending for smooth (anti-aliased) lines
     Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
 
+    
+    
+    %----------------------------------------------------------------------
+    %                        ID/Demographics
+    %----------------------------------------------------------------------
+    
+    id = input('What is the participant ID?');
+    
+    % age
+    Screen('TextSize', window, 36); 
+    DrawFormattedText(window, 'What is your age?',...
+    'center', 'center', white );
+    Screen('Flip', window);
+    
+    age = input('age: ');
+    while isnumeric(age) ~= 1
+        age = input('age: ');
+    end
+    
+    % sex
+    Screen('TextSize', window, 36); 
+    DrawFormattedText(window, 'What is your sex (''m'' or ''f'')?',...
+    'center', 'center', white );
+    Screen('Flip', window);
+    
+    sex = input('sex: ');
+    while strcmp(sex, 'm') ~= 1 && strcmp(sex, 'f') ~= 1 
+        sex = input('sex: ');
+    end
+        
+    % handedness
+    Screen('TextSize', window, 36); 
+    DrawFormattedText(window, 'What is your handedness(''r'' or ''l'')?',...
+    'center', 'center', white );
+    Screen('Flip', window);
+    
+    hand = input('hand: ');
+    while strcmp(hand, 'r') ~= 1 && strcmp(hand, 'l') ~= 1 
+        hand = input('hand: ');
+    end
+    
+    % time and date 
+    format shortg
+    c = clock;
+    year = c(1);
+    month = c(2);
+    day = c(3);
+    hour = c(4);
+    minute = c(5);
+    seconds = c(6);
+    
+    
+    
 
 
     %----------------------------------------------------------------------
@@ -101,7 +154,7 @@ try
     LI_SCALE = 20;
 
 
-
+    
     %----------------------------------------------------------------------
     %                       Timing Information
     %----------------------------------------------------------------------
@@ -150,14 +203,12 @@ try
     
     
     
-%     ----------------------------------------------------------------------
-%                         Make a response matrix
-%     ----------------------------------------------------------------------
-% 
-%     This matrix is long format so has as many rows as trials 
-%     it has the following columns:
-%     
-%     respMat = nan(numTrials, );
+    %----------------------------------------------------------------------
+    %                       Data File
+    %----------------------------------------------------------------------
+
+    % NEED TO SELECT ACTUAL DIRECTORY
+    fileID = fopen('directory/exp1', 'w');
 
 
 
@@ -312,6 +363,9 @@ try
         Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
         Screen('FillRect', window, ARR_COLOR, arrow_base);
         Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
+        
+        % keep updating data buffer, but not baseline/rest power...
+        [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
         % Flip to the screen
         vbl = Screen('Flip', window);
@@ -321,6 +375,9 @@ try
             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
             Screen('FillRect', window, ARR_COLOR, arrow_base);
             Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
+
+            % keep updating data buffer, but not baseline/rest power...
+            [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
             % Flip to the screen
             vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
@@ -374,6 +431,7 @@ try
 
     end
     
+    
     %------------------- End of Experiment --------------------------------
     Screen('TextSize', window, 36); 
     DrawFormattedText(window, 'You Have Succesfully Completed The Experiment' ,...
@@ -388,6 +446,7 @@ try
     Screen('Flip', window);
     KbStrokeWait; 
     %----------------------------------------------------------------------
+    
 
     % Clear the screen
     sca;
