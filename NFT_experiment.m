@@ -72,22 +72,22 @@ try
     % get numbers
     id = str2num(id);
     age = str2num(age);
+       
+    if (strcmp(sex, 'm') == 1)
+        sex = 1;
+    elseif (strcmp(sex, 'f') == 1)
+        sex = 2;
+    else
+        disp('ERROR: sex');  % should also get and error when putting in response matrix
+    end
     
-    if (strcmp(hand, 'l') ~= 1)
+    if (strcmp(hand, 'l') == 1)
         hand = 1;
-    elseif (strcmp(hand, 'r') ~= 1)
+    elseif (strcmp(hand, 'r') == 1)
         hand = 2;
     else
         disp('ERROR: handedness');  % should also get and error when putting in response matrix
     end  
-   
-    if (strcmp(sex, 'm') ~= 1)
-        sex = 1
-    elseif (strcmp(sex, 'f') ~= 1)
-        sex = 2
-    else
-        disp('ERROR: sex');  % should also get and error when putting in response matrix
-    end
     
     % time and date 
     format shortg
@@ -589,7 +589,7 @@ try
     
     
     % write response matrix to csv
-    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_raw.txt', id), raw_mat);
+    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_raw.csv', id), raw_mat);
 
   
     % Clear the screen
