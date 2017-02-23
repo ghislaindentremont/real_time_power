@@ -43,38 +43,10 @@ try
     %                        ID/Demographics
     %----------------------------------------------------------------------
     
-
     Screen('TextSize', window, 36); 
     DrawFormattedText(window, 'But really, enough about me, let''s talk about you...',...
     'center', 'center', white );
     Screen('Flip', window);
-%     
-%     age = input('age: ');
-%     while isnumeric(age) ~= 1
-%         age = input('age: ');
-%     end
-%     
-% %     sex
-%     Screen('TextSize', window, 36); 
-%     DrawFormattedText(window, 'What is your sex (''m'' or ''f'')?',...
-%     'center', 'center', white );
-%     Screen('Flip', window);
-%     
-%     sex = input('sex: ', 's');
-%     while strcmp(sex, 'm') ~= 1 && strcmp(sex, 'f') ~= 1 
-%         sex = input('sex: ');
-%     end
-%         
-% %     handedness
-%     Screen('TextSize', window, 36); 
-%     DrawFormattedText(window, 'What is your handedness(''r'' or ''l'')?',...
-%     'center', 'center', white );
-%     Screen('Flip', window);
-%     
-%     hand = input('hand: ', 's');
-%     while strcmp(hand, 'r') ~= 1 && strcmp(hand, 'l') ~= 1 
-%         hand = input('hand: ');
-%     end
 
     prompt = {'Enter participant ID:'
         , 'Enter participant age:'
@@ -95,6 +67,26 @@ try
         age = char(dems(2));
         sex = char(dems(3));
         hand = char(dems(4));
+    end
+    
+    % get numbers
+    id = str2num(id);
+    age = str2num(age);
+    
+    if (strcmp(hand, 'l') ~= 1)
+        hand = 1;
+    elseif (strcmp(hand, 'r') ~= 1)
+        hand = 2;
+    else
+        disp('ERROR: handedness');  % should also get and error when putting in response matrix
+    end  
+   
+    if (strcmp(sex, 'm') ~= 1)
+        sex = 1
+    elseif (strcmp(sex, 'f') ~= 1)
+        sex = 2
+    else
+        disp('ERROR: sex');  % should also get and error when putting in response matrix
     end
     
     % time and date 
@@ -220,13 +212,13 @@ try
     
     
     
-    %----------------------------------------------------------------------
-    %                       Data File
-    %----------------------------------------------------------------------
-
-    fileID = fopen(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s.txt', id), 'w');
-    fprintf(fileID, 'id age sex hand year month day hour minute seconds trial cue_location iti trial_stage data_buffer');
-
+%     %----------------------------------------------------------------------
+%     %                       Data File
+%     %----------------------------------------------------------------------
+% 
+% %     fileID = fopen(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_raw.txt', id), 'w');
+% %     fprintf(fileID, 'id age sex hand year month day hour minute seconds trial cue_location iti trial_stage iteration time Ch1 Ch2 Ch3 Ch3 Ch4 Ch5 Ch6 Ch7 Ch8 Ch9 Ch10 Ch11 Ch12 Ch13 Ch14');
+     
 
 
     %----------------------------------------------------------------------
@@ -308,20 +300,60 @@ try
 
 
         %----------------------------ITI --------------------------------------
-        Screen('FillRect', window, black, window_rect );
-
         iti = cond_matrix_shuffled(2,trial);
         iti_time_frames = round(iti / ifi / WAIT_FRAMES);
         
         % warm up data buffer 
         [temp_data, ts] = inlet.pull_chunk();
+        
+        
+        %------------ Save Data -----------%
+        trial_stage = 1;
+        iteration = 1;
+        cue_loc_idx = NaN;
+        
+        nrow = size(temp_data,2);
+        raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
+        raw_info_mat = repmat(raw_info, nrow, 1);
+        
+        raw_eeg_mat = [ts.' temp_data.'];
+        
+        raw_mat_temp = [raw_info_mat raw_eeg_mat];
+        
+        if trial == 1
+            raw_mat = raw_mat_temp;
+        else
+            raw_mat = [raw_mat; raw_mat_temp];
+        end
+        %----------------------------------%
+        
+        
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
         
+        
+        Screen('FillRect', window, black, window_rect );
         vbl = Screen('Flip', window);
                 
         for frame = 1:iti_time_frames-1
             % warm up data buffer 
             [temp_data, ts] = inlet.pull_chunk();
+            
+            
+            %------------ Save Data -----------%
+            iteration = iteration + 1;
+
+            nrow = size(temp_data,2);
+            raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
+            raw_info_mat = repmat(raw_info, nrow, 1);
+
+            raw_eeg_mat = [ts.' temp_data.'];
+            
+            raw_mat_temp = [raw_info_mat raw_eeg_mat];
+            
+            raw_mat = [raw_mat; raw_mat_temp];
+            %----------------------------------%
+            
+ 
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
             
             Screen('FillRect', window, black, window_rect );
@@ -335,7 +367,24 @@ try
         power_rest_list = 0;
         
         [temp_data, ts] = inlet.pull_chunk();
+        
+        
+        %------------ Save Data -----------%
+        trial_stage = 2;
+        iteration = 1;
 
+        nrow = size(temp_data,2);
+        raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
+        raw_info_mat = repmat(raw_info, nrow, 1);
+
+        raw_eeg_mat = [ts.' temp_data.'];
+
+        raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+        raw_mat = [raw_mat; raw_mat_temp];
+        %----------------------------------%
+
+        
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
         power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
@@ -347,15 +396,28 @@ try
         for frame = 1:fix_time_frames-1
             
             [temp_data, ts] = inlet.pull_chunk();
+            
+            
+            %------------ Save Data -----------%
+            iteration = iteration + 1;
 
+            nrow = size(temp_data,2);
+            raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
+            raw_info_mat = repmat(raw_info, nrow, 1);
+
+            raw_eeg_mat = [ts.' temp_data.'];
+
+            raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+            raw_mat = [raw_mat; raw_mat_temp];
+            %----------------------------------%
+
+            
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
             power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
             
-            % Draw the fixation point
             Screen('DrawLines', window, all_fix_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
-
-            % Flip to the screen
             vbl = Screen('Flip', window, vbl + (NF_WAIT_FRAMES - 0.5) * ifi);
         end
         %----------------------------------------------------------------------
@@ -375,38 +437,85 @@ try
             disp('Error: Cue location not specified')
             sca;
         end
+        
+        [temp_data, ts] = inlet.pull_chunk();
+        
+        
+        %------------ Save Data -----------%
+        trial_stage = 3;
+        iteration = 1;
 
-        % Draw cue 
-        Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
-        Screen('FillRect', window, ARR_COLOR, arrow_base);
-        Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
+        nrow = size(temp_data,2);
+        raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
+        raw_info_mat = repmat(raw_info, nrow, 1);
+
+        raw_eeg_mat = [ts.' temp_data.'];
+
+        raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+        raw_mat = [raw_mat; raw_mat_temp];
+        %----------------------------------%
+        
         
         % keep updating data buffer, but not baseline/rest power...
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
-
-        % Flip to the screen
+ 
+        Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+        Screen('FillRect', window, ARR_COLOR, arrow_base);
+        Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
         vbl = Screen('Flip', window);
 
         % Flip to the screen
         for frame = 1:cue_time_frames-1
-            Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
-            Screen('FillRect', window, ARR_COLOR, arrow_base);
-            Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
+      
+            [temp_data, ts] = inlet.pull_chunk();
+            
+            
+            %------------ Save Data -----------%
+            iteration = iteration + 1;
 
+            nrow = size(temp_data,2);
+            raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
+            raw_info_mat = repmat(raw_info, nrow, 1);
+
+            raw_eeg_mat = [ts.' temp_data.'];
+
+            raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+            raw_mat = [raw_mat; raw_mat_temp];
+            %----------------------------------%
+            
+            
             % keep updating data buffer, but not baseline/rest power...
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
-            % Flip to the screen
+            Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+            Screen('FillRect', window, ARR_COLOR, arrow_base);
+            Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
             vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
         end
         %----------------------------------------------------------------------
 
 
-        %--------------------- Draw NF bar -----------------------------------    
-            
-        % get data from the inlet
-        % this keeps pulling 'chunks' as though inlet is just a place to look for them
+        %--------------------- Draw NF bar -----------------------------------        
         [temp_data, ts] = inlet.pull_chunk();
+        
+        
+        %------------ Save Data -----------%
+        trial_stage = 4;
+        iteration = 1;
+
+        nrow = size(temp_data,2);
+        raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
+        raw_info_mat = repmat(raw_info, nrow, 1);
+
+        raw_eeg_mat = [ts.' temp_data.'];
+
+        raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+        raw_mat = [raw_mat; raw_mat_temp];
+        %----------------------------------%
+        
          
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
         
@@ -426,9 +535,23 @@ try
         % Flip to the screen
         for frame = 1:NF_time_frames-1
 
-            % get data from the inlet
-            % this keeps pulling 'chunks' as though inlet is just a place to look for them
             [temp_data, ts] = inlet.pull_chunk();
+            
+            
+            %------------ Save Data -----------%
+            iteration = iteration + 1;
+
+            nrow = size(temp_data,2);
+            raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
+            raw_info_mat = repmat(raw_info, nrow, 1);
+
+            raw_eeg_mat = [ts.' temp_data.'];
+
+            raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+            raw_mat = [raw_mat; raw_mat_temp];
+            %----------------------------------%
+            
 
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
             
@@ -464,13 +587,15 @@ try
     KbStrokeWait; 
     %----------------------------------------------------------------------
     
+    
+    % write response matrix to csv
+    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_raw.txt', id), raw_mat);
 
+  
     % Clear the screen
     sca;
-    fclose(fileID);
 catch
     sca;
-    fclose(fileID);
     psychrethrow(psychlasterror);
 end
 
