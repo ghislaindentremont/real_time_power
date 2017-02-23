@@ -219,7 +219,8 @@ try
 % %     fileID = fopen(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_raw.txt', id), 'w');
 % %     fprintf(fileID, 'id age sex hand year month day hour minute seconds trial cue_location iti trial_stage iteration time Ch1 Ch2 Ch3 Ch3 Ch4 Ch5 Ch6 Ch7 Ch8 Ch9 Ch10 Ch11 Ch12 Ch13 Ch14');
      
-
+    power_rest_mavgs = []
+    
 
     %----------------------------------------------------------------------
     %                       EEG Aquisition Setup
@@ -331,6 +332,18 @@ try
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
         
         
+        %------------ Save Data -----------%
+        % Pxx(:,1) is C3 whereas P(:,2) is C4 (i.e. left to right)
+        pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+
+        if trial == 1
+            pwr_mat = pwr_mat_temp;
+        else
+            pwr_mat = [pwr_mat; pwr_mat_temp];
+        end
+        %----------------------------------%
+        
+        
         Screen('FillRect', window, black, window_rect );
         vbl = Screen('Flip', window);
                 
@@ -355,6 +368,13 @@ try
             
  
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
+            
+            
+             %------------ Save Data -----------%
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat = [pwr_mat; pwr_mat_temp];
+            %----------------------------------%
+        
             
             Screen('FillRect', window, black, window_rect );
             vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
@@ -387,6 +407,13 @@ try
         
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
+        
+        %------------ Save Data -----------%
+        pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+        pwr_mat = [pwr_mat; pwr_mat_temp];
+        %----------------------------------%
+        
+        
         power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
         
         Screen('DrawLines', window, all_fix_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
@@ -415,6 +442,13 @@ try
             
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
+            
+            %------------ Save Data -----------%
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat = [pwr_mat; pwr_mat_temp];
+            %----------------------------------%
+        
+            
             power_rest_list = [power_rest_list, mean(mean(Pxx))]; 
             
             Screen('DrawLines', window, all_fix_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
@@ -460,6 +494,13 @@ try
         % keep updating data buffer, but not baseline/rest power...
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
  
+        
+        %------------ Save Data -----------%
+        pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+        pwr_mat = [pwr_mat; pwr_mat_temp];
+        %----------------------------------%
+        
+        
         Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
         Screen('FillRect', window, ARR_COLOR, arrow_base);
         Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
@@ -489,6 +530,13 @@ try
             % keep updating data buffer, but not baseline/rest power...
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
+            
+            %------------ Save Data -----------%
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat = [pwr_mat; pwr_mat_temp];
+            %----------------------------------%
+            
+            
             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
             Screen('FillRect', window, ARR_COLOR, arrow_base);
             Screen('FillPoly', window, ARR_COLOR, arrow_spear, 1);
@@ -518,10 +566,25 @@ try
         
          
         [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
-        
+               
         power_rest = mean(power_rest_list);
         
-        LI = get_LI(cue_loc, Pxx, power_rest);
+        power_rest_mavgs = [power_rest_mavgs power_rest];
+        
+        if length(power_rest_mavgs) < 40
+            power_rest_mavg = mean(power_rest_mavgs);
+        else 
+            power_rest_mavg = mean(power_rest_mavgs(end-40+1:end));
+        end
+
+        LI = get_LI(cue_loc, Pxx, power_rest_mavg);
+        
+                
+        %------------ Save Data -----------%
+        pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+        pwr_mat = [pwr_mat; pwr_mat_temp];
+        %----------------------------------%
+        
         
         NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX);
         
@@ -556,7 +619,14 @@ try
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
             
             LI = get_LI(cue_loc, Pxx, power_rest);
+            
+            
+            %------------ Save Data -----------%
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+            pwr_mat = [pwr_mat; pwr_mat_temp];
+            %----------------------------------%
         
+            
             NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX);
         
             % Draw NF bar
@@ -590,7 +660,7 @@ try
     
     % write response matrix to csv
     csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_raw.csv', id), raw_mat);
-
+    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_pwr.csv', id), pwr_mat);
   
     % Clear the screen
     sca;
