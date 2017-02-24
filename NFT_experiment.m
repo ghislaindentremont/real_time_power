@@ -219,7 +219,7 @@ try
 % %     fileID = fopen(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_raw.txt', id), 'w');
 % %     fprintf(fileID, 'id age sex hand year month day hour minute seconds trial cue_location iti trial_stage iteration time Ch1 Ch2 Ch3 Ch3 Ch4 Ch5 Ch6 Ch7 Ch8 Ch9 Ch10 Ch11 Ch12 Ch13 Ch14');
      
-    power_rest_mavgs = []
+    power_rest_window = [];
     
 
     %----------------------------------------------------------------------
@@ -383,8 +383,8 @@ try
 
 
         %--------------------- Draw the fixation cross ------------------------
-        % set power to zero
-        power_rest_list = 0;
+        % start power list
+        power_rest_list = [];
         
         [temp_data, ts] = inlet.pull_chunk();
         
@@ -569,12 +569,12 @@ try
                
         power_rest = mean(power_rest_list);
         
-        power_rest_mavgs = [power_rest_mavgs power_rest];
+        power_rest_window = [power_rest_window power_rest];
         
-        if length(power_rest_mavgs) < 40
-            power_rest_mavg = mean(power_rest_mavgs);
+        if length(power_rest_window) < 40
+            power_rest_mavg = mean(power_rest_window);
         else 
-            power_rest_mavg = mean(power_rest_mavgs(end-40+1:end));
+            power_rest_mavg = mean(power_rest_window(end-40+1:end));
         end
 
         LI = get_LI(cue_loc, Pxx, power_rest_mavg);
@@ -618,11 +618,11 @@ try
 
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
             
-            LI = get_LI(cue_loc, Pxx, power_rest);
+            LI = get_LI(cue_loc, Pxx, power_rest_mavg);
             
             
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
         
