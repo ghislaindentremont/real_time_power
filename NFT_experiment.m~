@@ -223,7 +223,7 @@ try
 % %     fileID = fopen(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_raw.txt', id), 'w');
 % %     fprintf(fileID, 'id age sex hand year month day hour minute seconds trial cue_location iti trial_stage iteration time Ch1 Ch2 Ch3 Ch3 Ch4 Ch5 Ch6 Ch7 Ch8 Ch9 Ch10 Ch11 Ch12 Ch13 Ch14');
      
-    power_rest_window = [];
+    power_rest_mavgs = []
     
 
     %----------------------------------------------------------------------
@@ -292,9 +292,7 @@ try
     %                       Experimental Loop
     %----------------------------------------------------------------------
 
-    for block = 1:num_blocks
-        
-        block_cond = blk_matrix_shuffled[block]
+    for block_cond = blk_matrix_shuffled
         
         % Randomize the conditions
         shuffler = Shuffle(1:num_trials);
@@ -310,7 +308,7 @@ try
             
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Motor Imagery: In these trials you will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Trial',...
+            DrawFormattedText(window, 'Motor Imagery: In these trials you will imagine moving the hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Trial',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -320,7 +318,7 @@ try
             
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Motor Execution: In these trials you will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Begin the Trial',...
+            DrawFormattedText(window, 'Motor Execution: In these trials you will move the hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Trial',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -357,7 +355,7 @@ try
             cue_loc_idx = NaN;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -377,7 +375,7 @@ try
 
             %------------ Save Data -----------%
             % Pxx(:,1) is C3 whereas P(:,2) is C4 (i.e. left to right)
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
 
             if trial == 1
                 pwr_mat = pwr_mat_temp;
@@ -394,25 +392,12 @@ try
                 % warm up data buffer 
                 [temp_data, ts] = inlet.pull_chunk();
 
-<<<<<<< Updated upstream
-        %--------------------- Draw the fixation cross ------------------------
-        % start power list
-        power_rest_list = [];
-        
-        [temp_data, ts] = inlet.pull_chunk();
-        
-        
-        %------------ Save Data -----------%
-        trial_stage = 2;
-        iteration = 1;
-=======
->>>>>>> Stashed changes
 
                 %------------ Save Data -----------%
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -427,7 +412,7 @@ try
 
 
                  %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -450,7 +435,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -465,7 +450,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -485,7 +470,7 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -500,7 +485,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -536,7 +521,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -552,7 +537,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -572,28 +557,10 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
-<<<<<<< Updated upstream
-        raw_mat = [raw_mat; raw_mat_temp];
-        %----------------------------------%
-        
-         
-        [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
-               
-        power_rest = mean(power_rest_list);
-        
-        power_rest_window = [power_rest_window power_rest];
-        
-        if length(power_rest_window) < 40
-            power_rest_mavg = mean(power_rest_window);
-        else 
-            power_rest_mavg = mean(power_rest_window(end-40+1:end));
-        end
-=======
                 raw_eeg_mat = [ts.' temp_data.'];
->>>>>>> Stashed changes
 
                 raw_mat_temp = [raw_info_mat raw_eeg_mat];
 
@@ -606,7 +573,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -628,7 +595,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -640,14 +607,6 @@ try
 
 
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
-<<<<<<< Updated upstream
-            
-            LI = get_LI(cue_loc, Pxx, power_rest_mavg);
-            
-            
-            %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
-=======
 
             power_rest = mean(power_rest_list);
 
@@ -663,8 +622,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
->>>>>>> Stashed changes
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -688,7 +646,7 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -705,7 +663,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
