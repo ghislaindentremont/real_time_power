@@ -215,21 +215,13 @@ try
     [~, num_trials] = size(cond_matrix);
     
     
-    
-%     %----------------------------------------------------------------------
-%     %                       Data File
-%     %----------------------------------------------------------------------
-% 
-% %     fileID = fopen(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_raw.txt', id), 'w');
-% %     fprintf(fileID, 'id age sex hand year month day hour minute seconds trial cue_location iti trial_stage iteration time Ch1 Ch2 Ch3 Ch3 Ch4 Ch5 Ch6 Ch7 Ch8 Ch9 Ch10 Ch11 Ch12 Ch13 Ch14');
-     
-    power_rest_window = [];
-    
 
     %----------------------------------------------------------------------
     %                       EEG Aquisition Setup
     %----------------------------------------------------------------------
 
+    power_rest_window = [];
+    
     % should be equal to FS defined in next block
     sampling_rate = 128;
 
@@ -294,13 +286,13 @@ try
 
     for block = 1:num_blocks
         
-        block_cond = blk_matrix_shuffled[block]
+        block_cond = blk_matrix_shuffled(block);
         
         % Randomize the conditions
         shuffler = Shuffle(1:num_trials);
         cond_matrix_shuffled2 = cond_matrix(:, shuffler);
 
-        % get ITIs 
+        % get ITIs   
         itis = rand(1,num_trials)+1;
 
         % final condition matrix
@@ -308,9 +300,19 @@ try
         
         if block_cond == 1
             
+            tic;
+            while toc < 5
+                %------------------- Block Instruction Message ------------------------
+                Screen('TextSize', window, 36); 
+                DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.',...
+                    'center', 'center', white );
+                Screen('Flip', window);
+                %----------------------------------------------------------------------
+            end
+            
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Motor Imagery: In these trials you will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Trial',...
+            DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -318,9 +320,19 @@ try
             
         elseif block_cond == 2
             
+            tic;
+            while toc < 5
+                %------------------- Block Instruction Message ------------------------
+                Screen('TextSize', window, 36); 
+                DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.',...
+                    'center', 'center', white );
+                Screen('Flip', window);
+                %----------------------------------------------------------------------
+            end
+            
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Motor Execution: In these trials you will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Begin the Trial',...
+            DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -394,20 +406,6 @@ try
                 % warm up data buffer 
                 [temp_data, ts] = inlet.pull_chunk();
 
-<<<<<<< Updated upstream
-        %--------------------- Draw the fixation cross ------------------------
-        % start power list
-        power_rest_list = [];
-        
-        [temp_data, ts] = inlet.pull_chunk();
-        
-        
-        %------------ Save Data -----------%
-        trial_stage = 2;
-        iteration = 1;
-=======
->>>>>>> Stashed changes
-
                 %------------ Save Data -----------%
                 iteration = iteration + 1;
 
@@ -440,7 +438,7 @@ try
 
             %--------------------- Draw the fixation cross ------------------------
             % set power to zero
-            power_rest_list = 0;
+            power_rest_list = [];
 
             [temp_data, ts] = inlet.pull_chunk();
 
@@ -575,26 +573,8 @@ try
                 raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
-<<<<<<< Updated upstream
-        raw_mat = [raw_mat; raw_mat_temp];
-        %----------------------------------%
-        
-         
-        [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
-               
-        power_rest = mean(power_rest_list);
-        
-        power_rest_window = [power_rest_window power_rest];
-        
-        if length(power_rest_window) < 40
-            power_rest_mavg = mean(power_rest_window);
-        else 
-            power_rest_mavg = mean(power_rest_window(end-40+1:end));
-        end
-=======
                 raw_eeg_mat = [ts.' temp_data.'];
->>>>>>> Stashed changes
-
+                
                 raw_mat_temp = [raw_info_mat raw_eeg_mat];
 
                 raw_mat = [raw_mat; raw_mat_temp];
@@ -640,23 +620,15 @@ try
 
 
             [Pxx, Fxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
-<<<<<<< Updated upstream
             
-            LI = get_LI(cue_loc, Pxx, power_rest_mavg);
-            
-            
-            %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
-=======
-
             power_rest = mean(power_rest_list);
 
-            power_rest_mavgs = [power_rest_mavgs power_rest];
+            power_rest_window = [power_rest_window power_rest];
 
-            if length(power_rest_mavgs) < 40
-                power_rest_mavg = mean(power_rest_mavgs);
+            if length(power_rest_window) < 40
+                power_rest_mavg = mean(power_rest_window);
             else 
-                power_rest_mavg = mean(power_rest_mavgs(end-40+1:end));
+                power_rest_mavg = mean(power_rest_window(end-40+1:end));
             end
 
             LI = get_LI(cue_loc, Pxx, power_rest_mavg);
@@ -664,7 +636,6 @@ try
 
             %------------ Save Data -----------%
             pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
->>>>>>> Stashed changes
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
