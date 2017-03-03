@@ -52,6 +52,7 @@ try
         , 'Enter participant age:'
         ,'Enter participant sex (''m'' or ''f''):'
         , 'Enter participant handedness (''r'' or ''l''):'
+        , 'Enter condition (''MI'' or ''ME''):'
         };
     dlg_title = 'Demographics';
     num_lines = 1;
@@ -60,13 +61,15 @@ try
     age = char(dems(2));
     sex = char(dems(3));
     hand = char(dems(4));
+    task = char(dems(5));
 
-    while (strcmp(hand, 'r') ~= 1 && strcmp(hand, 'l') ~= 1) ||  (strcmp(sex, 'm') ~= 1 && strcmp(sex, 'f') ~= 1)
+    while (strcmp(hand, 'r') ~= 1 && strcmp(hand, 'l') ~= 1) ||  (strcmp(sex, 'm') ~= 1 && strcmp(sex, 'f') ~= 1) ||  (strcmp(task, 'MI') ~= 1 && strcmp(task, 'ME') ~= 1)
         dems = inputdlg(prompt,dlg_title,num_lines);
         id = char(dems(1));
         age = char(dems(2));
         sex = char(dems(3));
         hand = char(dems(4));
+        task = char(dems(5));
     end
     
     % get numbers
@@ -87,6 +90,14 @@ try
         hand = 2;
     else
         disp('ERROR: handedness');  % should also get and error when putting in response matrix
+    end  
+    
+    if (strcmp(task, 'MI') == 1)
+        task = 1;
+    elseif (strcmp(task, 'ME') == 1)
+        task = 2;
+    else
+        disp('ERROR: block condition');  % should also get and error when putting in response matrix
     end  
     
     % time and date 
@@ -189,26 +200,14 @@ try
     %----------------------------------------------------------------------
     %                       Conditions
     %----------------------------------------------------------------------
-
-    % block condition
-    blk_conds_list = {'MI', 'ME'};
-    blk_conds = [1, 2];
     
-    BLOCKS_PER_CONDITION = 1;
-    blk_matrix = repmat(blk_conds, 1, BLOCKS_PER_CONDITION);
-    
-    % Get the size of the matrix
-    [~, num_blocks] = size(blk_matrix);
-
-    % Randomise the conditions
-    shuffler = Shuffle(1:num_blocks);
-    blk_matrix_shuffled = blk_matrix(:, shuffler);
+    NUM_BLOCKS = 1;
     
     % cue location
     cue_locs_list = {'left', 'right'};
     cue_locs = [1, 2];
 
-    TRIALS_PER_CONDITION = 1;
+    TRIALS_PER_CONDITION = 5;
     cond_matrix = repmat(cue_locs, 1, TRIALS_PER_CONDITION);
 
     % Get the size of the matrix
@@ -284,9 +283,7 @@ try
     %                       Experimental Loop
     %----------------------------------------------------------------------
 
-    for block = 1:num_blocks
-        
-        block_cond = blk_matrix_shuffled(block);
+    for block = 1:NUM_BLOCKS
         
         % Randomize the conditions
         shuffler = Shuffle(1:num_trials);
@@ -298,61 +295,72 @@ try
         % final condition matrix
         cond_matrix_shuffled = [cond_matrix_shuffled2; itis];
         
-        if block_cond == 1
-            
-            tic;
-            while toc < 5
+        if block == 1
+            if task == 1
+
+                tic;
+                while toc < 5
+                    %------------------- Block Instruction Message ------------------------
+                    Screen('TextSize', window, 36); 
+                    DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.',...
+                        'center', 'center', white );
+                    Screen('Flip', window);
+                    %----------------------------------------------------------------------
+                end
+
                 %------------------- Block Instruction Message ------------------------
                 Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.',...
+                DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Block',...
                     'center', 'center', white );
                 Screen('Flip', window);
+    %             KbStrokeWait; 
                 %----------------------------------------------------------------------
-            end
-            
-            %------------------- Block Instruction Message ------------------------
-            Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Block',...
-                'center', 'center', white );
-            Screen('Flip', window);
-            KbStrokeWait; 
-            %----------------------------------------------------------------------
-            
-        elseif block_cond == 2
-            
-            tic;
-            while toc < 5
+
+            elseif task == 2
+
+                tic;
+                while toc < 5
+                    %------------------- Block Instruction Message ------------------------
+                    Screen('TextSize', window, 36); 
+                    DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.',...
+                        'center', 'center', white );
+                    Screen('Flip', window);
+                    %----------------------------------------------------------------------
+                end
+
                 %------------------- Block Instruction Message ------------------------
                 Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.',...
+                DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Begin the Block',...
                     'center', 'center', white );
                 Screen('Flip', window);
+    %             KbStrokeWait; 
                 %----------------------------------------------------------------------
+
+            else
+                disp('ERROR: block condition not defined')       
             end
-            
-            %------------------- Block Instruction Message ------------------------
-            Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Begin the Block',...
-                'center', 'center', white );
-            Screen('Flip', window);
-            KbStrokeWait; 
-            %----------------------------------------------------------------------
             
         else
-            disp('ERROR: block condition not defined')       
+            %------------------- Block Instruction Message ------------------------
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'Take a Break!\n\n\nPress Any Key To Begin the Block',...
+                'center', 'center', white );
+            Screen('Flip', window);
+%             KbStrokeWait; 
+            %----------------------------------------------------------------------
         end
         
         
         for trial = 1:num_trials
           
 
-            %-------------------Trial Initiation message --------------------------
-            Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
-                'center', 'center', white );
-            Screen('Flip', window);
-            KbStrokeWait; 
-            %----------------------------------------------------------------------
+%             -------------------Trial Initiation message --------------------------
+%             Screen('TextSize', window, 36); 
+%             DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
+%                 'center', 'center', white );
+%             Screen('Flip', window);
+%             KbStrokeWait; 
+%             ----------------------------------------------------------------------
 
 
             %----------------------------ITI --------------------------------------
@@ -369,14 +377,14 @@ try
             cue_loc_idx = NaN;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
 
             raw_mat_temp = [raw_info_mat raw_eeg_mat];
 
-            if trial == 1
+            if trial == 1 && block == 1
                 raw_mat = raw_mat_temp;
             else
                 raw_mat = [raw_mat; raw_mat_temp];
@@ -389,9 +397,9 @@ try
 
             %------------ Save Data -----------%
             % Pxx(:,1) is C3 whereas P(:,2) is C4 (i.e. left to right)
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
 
-            if trial == 1
+            if trial == 1 && block == 1
                 pwr_mat = pwr_mat_temp;
             else
                 pwr_mat = [pwr_mat; pwr_mat_temp];
@@ -410,7 +418,7 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -425,7 +433,7 @@ try
 
 
                  %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -448,7 +456,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -463,7 +471,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -483,7 +491,7 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -498,7 +506,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -534,7 +542,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -550,7 +558,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -570,7 +578,7 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -586,7 +594,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -608,7 +616,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -635,7 +643,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -659,7 +667,7 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -676,7 +684,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block block_cond trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -710,7 +718,7 @@ try
     DrawFormattedText(window, 'The Experimenter Should Be With You Shortly',...
     'center', 'center', white );
     Screen('Flip', window);
-    KbStrokeWait; 
+%     KbStrokeWait; 
     %----------------------------------------------------------------------
     
     
