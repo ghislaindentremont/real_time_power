@@ -384,7 +384,7 @@ try
 
             raw_mat_temp = [raw_info_mat raw_eeg_mat];
 
-            if trial == 1 && block == 1
+            if trial == 1 
                 raw_mat = raw_mat_temp;
             else
                 raw_mat = [raw_mat; raw_mat_temp];
@@ -397,9 +397,9 @@ try
 
             %------------ Save Data -----------%
             % Pxx(:,1) is C3 whereas P(:,2) is C4 (i.e. left to right)
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
 
-            if trial == 1 && block == 1
+            if trial == 1 
                 pwr_mat = pwr_mat_temp;
             else
                 pwr_mat = [pwr_mat; pwr_mat_temp];
@@ -433,7 +433,7 @@ try
 
 
                  %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -471,7 +471,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -506,7 +506,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -558,7 +558,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -594,7 +594,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -643,7 +643,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -684,7 +684,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -723,8 +723,8 @@ try
     
     
     % write response matrix to csv
-    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_raw.csv', id), raw_mat);
-    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_pwr.csv', id), pwr_mat);
+    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_raw_block_%i.csv', id), raw_mat, block);
+    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_pwr_block_%i.csv', id), pwr_mat, block);
   
     % Clear the screen
     sca;
