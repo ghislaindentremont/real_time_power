@@ -1,0 +1,282 @@
+---
+title: "Checking MATLAB Output"
+author: Ghislain d'Entremont
+date: March 3, 2017
+output: html_document
+---
+
+## Load Packages 
+
+```{r echo=FALSE, include=FALSE}
+library(signal)
+library(tidyverse)
+library(rstan)
+library(bspec)
+
+```
+
+## Load and Tidy Data
+
+We start with the raw data.
+
+```{r echo=FALSE, include=FALSE}
+setwd("/Volumes/LaCie/Experiments/NF_data")
+
+raw = map_df(
+  .x = list.files(
+    pattern = "raw"
+  )
+  , .f = function(file) {
+    read_csv(
+      file = file
+      , col_names = FALSE
+    )
+  }
+)
+
+names(raw) = c('id', 'age', 'sex', 'hand', 'year', 'month', 'day', 'hour', 'minute', 'seconds', 'block' , 'block_cond', 'trial', 'cue_loc', 'iti', 'trial_stage', 'iteration', 'time', 'Ch1', 'Ch2', 'Ch3', 'Ch4', 'Ch5', 'Ch6', 'Ch7', 'Ch8', 'Ch9', 'Ch10', 'Ch11', 'Ch12', 'Ch13', 'Ch14')
+
+raw$id = factor(raw$id)
+raw$sex = factor(raw$sex, levels = c(1, 2), labels = c("male", "female"))
+raw$hand = factor(raw$hand, levels = c(1, 2), labels = c("left", "right"))
+raw$block = factor(raw$block)
+raw$block_cond = factor(raw$block_cond, levels = c(1, 2), labels = c("MI", "ME"))
+raw$cue_loc = factor(raw$cue_loc, levels = c(1, 2), labels = c("left", "right"))
+raw$trial_stage = factor(raw$trial_stage, levels = c(1:4), labels = c("iti", "fixation", "cue", "NF"))
+
+summary(raw)
+
+raw_long = raw %>%
+  gather(channel, signal, Ch1:Ch14, factor_key = TRUE)
+
+summary(raw_long)
+
+```
+
+Now we look at the transformed (power) data.
+
+```{r echo=FALSE, include=FALSE}
+setwd("/Volumes/LaCie/Experiments/NF_data")
+
+pwr = map_df(
+  .x = list.files(
+    pattern = "pwr"
+  )
+  , .f = function(file) {
+    read_csv(
+      file = file
+      , col_names = FALSE
+    )
+  }
+)
+
+names(pwr) = c('id', 'age', 'sex', 'hand', 'year', 'month', 'day', 'hour', 'minute', 'seconds', 'block' , 'block_cond', 'trial', 'cue_loc', 'iti', 'trial_stage', 'iteration', 'baseline_power_mavg', 'C3', 'C4', 'LI') 
+
+pwr$id = factor(pwr$id)
+pwr$sex = factor(pwr$sex, levels = c(1, 2), labels = c("male", "female"))
+pwr$hand = factor(pwr$hand, levels = c(1, 2), labels = c("left", "right"))
+pwr$block = factor(pwr$block)
+pwr$block_cond = factor(pwr$block_cond, levels = c(1, 2), labels = c("MI", "ME"))
+pwr$cue_loc = factor(pwr$cue_loc, levels = c(1, 2), labels = c("left", "right"))
+pwr$trial_stage = factor(pwr$trial_stage, levels = c(1:4), labels = c("iti", "fixation", "cue", "NF"))
+
+summary(pwr)
+
+pwr_long = pwr %>%
+  gather(channel, signal, c(C3, C4), factor_key = TRUE)
+
+summary(pwr_long)
+
+```
+
+## Look at Raw Data
+
+We verify that time stamps are accurate. Indeed, the difference between the time stamps and the expected time points (based on sampling frequency) are varies closely around 0.
+
+```{r}
+raw_long = raw_long %>%
+  group_by(block, trial, trial_stage, channel) %>%
+  mutate(
+    time_adj = time - min(time)
+    , time_est = seq(0, (1/128)*(length(id)-1), by = 1/128)
+    )
+
+raw_long %>% 
+  dplyr::filter(block == 1, trial < 10) %>%
+  ggplot(aes(x = time_est, y = time_est - time_adj))+
+    geom_line()+
+    ggtitle("Across Channels, Trial Stages, and Trials")+
+    xlab("Estimated Time (s)")+
+    ylab("Estimated - Recorded Times (s)")
+  
+```
+
+Look at raw waveforms and epochs.
+
+```{r}
+raw_long %>%
+  dplyr::filter(block == 1, trial < 10) %>%
+  ggplot(aes(y = signal, x = time))+
+    geom_line()+
+    facet_grid(channel ~.)+
+    ggtitle("Partial Raw Experiment Data")+
+    xlab("Time (s)")+
+    ylab("Signal (uV?)")
+
+raw_long %>%
+  dplyr::filter(trial_stage == "NF", block == 1, trial < 10) %>%
+  group_by(channel, time_est) %>%
+  summarize(avg_signal = mean(signal)) %>%
+  ggplot(aes(y = avg_signal, x = time_est))+
+    geom_line()+
+    facet_grid(channel~.)+
+    ggtitle("Partial NF Trial Grand Average")+
+    xlab("Time (s)")+
+    ylab("Signal (uV?)")
+
+```
+
+
+We look to create power values from raw data. We will attempt this without the use of a 'data buffer'. For each trial stage we will (1) butterworth (2) notch and (3) take the power values.
+
+```{r}
+bu = butter(2, c(4,60)/(128/2), type = 'pass')
+no = butter(2, c(59,61)/(128/2), type = 'stop')
+
+raw_long_fil= raw_long %>%
+  group_by(channel) %>%
+  mutate(butter_filtered = signal::filter(bu, signal)) %>%
+  mutate(and_notch_filtered = signal::filter(no, butter_filtered))
+
+raw_long_fil %>%
+  dplyr::filter(block == 1, trial < 10) %>%
+  ggplot(aes(y = and_notch_filtered, x = time))+
+    geom_line()+
+    facet_grid(channel ~.)+
+    ggtitle("Partial Filtered Experiment Data")+
+    xlab("Time (s)")+
+    ylab("Signal (uV?)")
+
+raw_long_pwr = raw_long_fil %>%
+  dplyr::filter(channel == "Ch8" || channel == "Ch12") %>%
+  group_by(block, trial, trial_stage, channel) %>%
+  summarize(power = mean(welchPSD(ts(and_notch_filtered), seglength = 128)[["power"]][14:31]))
+
+```
+
+Let's compare the calculated power values to those that were computed in realtime in MATLAB. We see a nearly perfect relationship between these power values for each channel. The discrency appears to lie in the magnitudes of the values, with the MATLAB computed power values being quite a bit smaller. The power values computed in real time were taken from smaller time windows and averaged (moving averages were themselves averaged), whereas those computed above were done for each trial stage.
+
+```{r}
+pwr_cal = raw_long_pwr %>%
+  group_by(block, trial, trial_stage, channel) %>%
+  summarize(avg_cal = mean(power))  
+
+pwr_real = pwr_long %>%
+  group_by(block, trial, trial_stage, channel) %>%
+  summarize(avg_real = mean(signal)) 
+
+pwr_compare = bind_cols(pwr_cal[3:nrow(pwr_cal), -4], pwr_real[3:nrow(pwr_cal), ])
+
+pwr_compare %>% 
+  ggplot(aes(x = avg_cal, y = avg_real))+
+    geom_point()+
+    geom_smooth()+ 
+    facet_grid(channel~.)+
+    xlab("Calculated Power")+
+    ylab("Realtime Power") 
+
+pwr_compare[,-c(1,2,3)] %>%
+  group_by(channel) %>%
+  summarize(corr = cor(avg_cal, avg_real, use = "complete"))
+
+```
+
+## Look at Power Data
+
+First, we'll examine the timestamps. In at least some cases the timing of a particular time_stage was perfect (looking at max iteration). However, looking at the median, we see that there is timing issue - one that likely relates to the slowed screen flipping later in the experiment run. 
+
+```{r}
+pwr_long %>%
+  group_by(trial_stage) %>%
+  summarize(
+    perfect_stage_time = ifelse(
+      trial_stage == "NF" || trial_stage == "fixation"
+      , max(iteration)*(1/60)*3
+      , max(iteration)*(1/60)*1
+      )       
+    , median_stage_time = ifelse(
+      trial_stage == "NF" || trial_stage == "fixation"
+      , median(iteration)*(1/60)*3
+      , median(iteration)*(1/60)*1
+      )       
+    )
+
+```
+
+We see power spikes during the iti phase. Also, we see a sharp increase in power at the very end of the NF phase.
+
+```{r}
+pwr_long %>%
+  dplyr::filter(trial_stage != "iti") %>%
+  group_by(block, trial, trial_stage, iteration, channel) %>%
+  summarize(avg_signal = mean(signal)) %>%
+  ggplot(aes(y = avg_signal, x = iteration))+
+    geom_line()+
+    facet_grid(channel~trial_stage)+
+    ggtitle("Grand Averages")+
+    xlab("Iteration")+
+    ylab("Power")
+
+pwr_long %>%
+  dplyr::filter(trial_stage == "iti") %>%
+  group_by(block, trial, trial_stage, iteration, channel) %>%
+  summarize(avg_signal = mean(signal)) %>%
+  ggplot(aes(y = avg_signal, x = iteration))+
+    geom_line()+
+    facet_grid(channel~trial_stage)+
+    ggtitle("Grand Averages")+
+    xlab("Iteration")+
+    ylab("Power")
+
+```
+
+We now look at LI during the trial phase of interest: NF. First, we confirm the LI calculations. Indeed, these are easily confirmed as per the histogram. We then examine the grand average for a NF trial.
+
+```{r}
+pwr %>%
+  dplyr::filter(trial_stage == "NF") %>%
+  mutate(
+    LI_confirm = ifelse(
+        cue_loc == "right"
+        , log2(C4/baseline_power_mavg) - log2(C3/baseline_power_mavg) 
+        , -(log2(C3/baseline_power_mavg) - log2(C4/baseline_power_mavg)) 
+      )
+    ) %>%
+  ggplot()+
+    geom_histogram(aes(x = LI - LI_confirm))
+
+pwr_long %>% 
+  mutate(
+    LI_pos = ifelse(
+        cue_loc == "right"
+        , LI
+        , -LI
+      )
+    ) %>%
+  dplyr::filter(trial_stage == "NF") %>%
+  group_by(block, trial,iteration, channel) %>%
+  summarize(avg_LI = mean(LI_pos)) %>%
+  ggplot(aes(y = avg_LI, x = iteration))+
+    geom_line()+
+    facet_grid(channel~.)+
+    ggtitle("NF Trial Grand Average")+
+    xlab("Iteration")+
+    ylab("LI (positive)")
+
+```
+
+
+
+
+
+

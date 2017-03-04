@@ -1,0 +1,7 @@
+---
+title: "PSYO 6001 Final Project - Ghislain d'Entremont"
+author: Ghislain d'Entremont
+date: March 3, 2017
+output: html_document
+---
+
