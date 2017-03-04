@@ -1,13 +1,15 @@
 ---
 title: "Checking MATLAB Output"
 author: Ghislain d'Entremont
-date: March 3, 2017
+date: March 4, 2017
 output: html_document
 ---
 
-## Load Packages 
 
-```{r echo=FALSE, include=FALSE}
+
+# Load Packages 
+
+```{r message=FALSE}
 library(signal)
 library(tidyverse)
 library(rstan)
@@ -15,16 +17,18 @@ library(bspec)
 
 ```
 
-## Load and Tidy Data
 
-We start with the raw data.
 
-```{r echo=FALSE, include=FALSE}
+# Load and Tidy Data
+
+##### We start with the raw data.
+
+```{r message=FALSE}
 setwd("/Volumes/LaCie/Experiments/NF_data")
 
 raw = map_df(
   .x = list.files(
-    pattern = "raw"
+    pattern = "2_raw"
   )
   , .f = function(file) {
     read_csv(
@@ -53,14 +57,16 @@ summary(raw_long)
 
 ```
 
-Now we look at the transformed (power) data.
 
-```{r echo=FALSE, include=FALSE}
+
+##### Now we look at the transformed (power) data.
+
+```{r message=FALSE}
 setwd("/Volumes/LaCie/Experiments/NF_data")
 
 pwr = map_df(
   .x = list.files(
-    pattern = "pwr"
+    pattern = "2_pwr"
   )
   , .f = function(file) {
     read_csv(
@@ -89,9 +95,11 @@ summary(pwr_long)
 
 ```
 
-## Look at Raw Data
 
-We verify that time stamps are accurate. Indeed, the difference between the time stamps and the expected time points (based on sampling frequency) are varies closely around 0.
+
+# Look at Raw Data
+
+##### We verify that time stamps are accurate. Indeed, the difference between the time stamps and the expected time points (based on sampling frequency) are varies closely around 0.
 
 ```{r}
 raw_long = raw_long %>%
@@ -111,7 +119,9 @@ raw_long %>%
   
 ```
 
-Look at raw waveforms and epochs.
+
+
+##### Look at raw waveforms and epochs.
 
 ```{r}
 raw_long %>%
@@ -137,7 +147,8 @@ raw_long %>%
 ```
 
 
-We look to create power values from raw data. We will attempt this without the use of a 'data buffer'. For each trial stage we will (1) butterworth (2) notch and (3) take the power values.
+
+##### We look to create power values from raw data. We will attempt this without the use of a 'data buffer'. For each trial stage we will (1) butterworth (2) notch and (3) take the power values.
 
 ```{r}
 bu = butter(2, c(4,60)/(128/2), type = 'pass')
@@ -159,23 +170,25 @@ raw_long_fil %>%
 
 raw_long_pwr = raw_long_fil %>%
   dplyr::filter(channel == "Ch8" || channel == "Ch12") %>%
-  group_by(block, trial, trial_stage, channel) %>%
+  group_by(block, trial, trial_stage, cue_loc, channel) %>%
   summarize(power = mean(welchPSD(ts(and_notch_filtered), seglength = 128)[["power"]][14:31]))
 
 ```
 
-Let's compare the calculated power values to those that were computed in realtime in MATLAB. We see a nearly perfect relationship between these power values for each channel. The discrency appears to lie in the magnitudes of the values, with the MATLAB computed power values being quite a bit smaller. The power values computed in real time were taken from smaller time windows and averaged (moving averages were themselves averaged), whereas those computed above were done for each trial stage.
+
+
+##### Let's compare the calculated power values to those that were computed in realtime in MATLAB. We see a very strong positive relationship between these power values for each channel. The discrency appears to lie in the magnitudes of the values, with the MATLAB computed power values being quite a bit smaller. The power values computed in real time were taken from smaller time windows and averaged (moving averages were themselves averaged), whereas those computed above were done for each trial stage.
 
 ```{r}
 pwr_cal = raw_long_pwr %>%
   group_by(block, trial, trial_stage, channel) %>%
-  summarize(avg_cal = mean(power))  
+  summarize(avg_cal = mean(power)) 
 
 pwr_real = pwr_long %>%
   group_by(block, trial, trial_stage, channel) %>%
   summarize(avg_real = mean(signal)) 
 
-pwr_compare = bind_cols(pwr_cal[3:nrow(pwr_cal), -4], pwr_real[3:nrow(pwr_cal), ])
+pwr_compare = bind_cols(pwr_cal[, -4], pwr_real)
 
 pwr_compare %>% 
   ggplot(aes(x = avg_cal, y = avg_real))+
@@ -183,7 +196,9 @@ pwr_compare %>%
     geom_smooth()+ 
     facet_grid(channel~.)+
     xlab("Calculated Power")+
-    ylab("Realtime Power") 
+    ylab("Realtime Power")+
+    xlim(c(0,25))+  # to ignore outliers
+    ylim(c(0,1))
 
 pwr_compare[,-c(1,2,3)] %>%
   group_by(channel) %>%
@@ -191,9 +206,103 @@ pwr_compare[,-c(1,2,3)] %>%
 
 ```
 
-## Look at Power Data
 
-First, we'll examine the timestamps. In at least some cases the timing of a particular time_stage was perfect (looking at max iteration). However, looking at the median, we see that there is timing issue - one that likely relates to the slowed screen flipping later in the experiment run. 
+
+##### Now, we can compute baseline power values from our calculated power values and compare those with those of the realtime MATAB output. We see that despite the relationship being nearly perfect (above), there is some kind of relationship between the moving average baseline from the realtime MATLAB output and that from calculated from the raw data. It is difficult to assess since the unsually large calculated power values from the early trials, by-products of filtering (see filtered data above), inflate the early average estimates. The correlation is still fairly high. The solution, if analysis of the raw data is prefered, may involve collecting some junk data prior to trial 1.
+
+```{r}
+baseline_pwr_cal = pwr_cal %>%
+  dplyr::filter(trial_stage == "fixation") %>%
+  group_by(block, trial) %>% 
+  summarize(baseline = mean(avg_cal))
+
+window = NULL
+mavgs = NULL
+for (i in 1:nrow(baseline_pwr_cal)) {
+  window = c(window, baseline_pwr_cal$baseline[i])
+  
+  if (length(window) > 40) {
+      window_40 = window[1:40]
+  } else {
+    window_40 = window
+  }
+  
+  mavg = mean(window_40)
+  mavgs = c(mavgs, mavg)
+}
+
+mavg_pwr_cal = tibble(cal_mavg = mavgs, block = baseline_pwr_cal$block, trial = baseline_pwr_cal$trial) 
+  
+mavg_pwr_real = pwr_long %>% 
+  dplyr::filter(trial_stage == "NF") %>%
+  group_by(block, trial) %>%
+  summarize(real_mavg = mean(baseline_power_mavg)) %>%
+  slice(1:nrow(mavg_pwr_cal))
+
+mavg_compare = left_join(mavg_pwr_cal, mavg_pwr_real)
+
+mavg_compare %>%
+  ggplot(aes(x = cal_mavg, y = real_mavg))+
+    geom_point()+
+    geom_smooth()+ 
+    ggtitle("Moving Average Baseline Power")+
+    xlab("Calculated Baseline")+
+    ylab("Realtime Basline")
+
+cor(mavg_compare$cal_mavg, mavg_compare$real_mavg)
+
+```
+
+
+
+##### To esure that the LIs (the parameter of interest) is the same whether computed online or offline, we compute LIs for each trial using raw data and compare those to the average of those computed in real time. Interestingly the LIs seem to be related strongly and in logistic manner as can be seen my the model fit. The correlation comes out to be very large.
+
+```{r}
+LI_cal = raw_long_pwr %>%
+  dplyr::filter(trial_stage == "NF") %>%
+  left_join(mavg_pwr_cal) %>%
+  spread(key = channel, power) %>%
+  mutate(
+    LI_cal = ifelse(
+      cue_loc == "right"
+      , log2(Ch12/cal_mavg) - log2(Ch8/cal_mavg)
+      , log2(Ch8/cal_mavg) - log2(Ch12/cal_mavg)
+    )
+  )
+
+LI_real = pwr_long %>% 
+  mutate(
+    LI_pos = ifelse(
+        cue_loc == "right"
+        , LI
+        , -LI
+      )
+    ) %>%
+  dplyr::filter(trial_stage == "NF") %>%
+  group_by(block, trial) %>%
+  summarize(avg_LI = mean(LI_pos))
+
+LI_compare = bind_cols(LI_cal, LI_real[,-c(1:2)])
+
+LI_compare %>% 
+  ggplot(aes(x = LI_cal, y = avg_LI))+
+    geom_point()+
+    geom_smooth()+ 
+    ggtitle("Calculated by Trial")+
+    xlab("Calculated LI")+
+    ylab("Realtime LI")+
+    xlim(c(-1.1, 1))+
+    ylim(c(-1,1.5))
+
+cor(LI_compare$LI_cal, LI_compare$avg_LI)
+
+```
+
+
+
+# Look at Real Time Data
+
+##### First, we'll examine the timestamps. In at least some cases the timing of a particular time_stage was perfect (looking at max iteration). However, looking at the median, we see that there is timing issue - one that likely relates to the slowed screen flipping later in the experiment run. 
 
 ```{r}
 pwr_long %>%
@@ -213,7 +322,9 @@ pwr_long %>%
 
 ```
 
-We see power spikes during the iti phase. Also, we see a sharp increase in power at the very end of the NF phase.
+
+
+We see power spikes during the iti phase. Also, we see a sharp increase in power at the very end of the NF phase. The last plot shows that these power spikes are due to the early trial filtering artifacts. 
 
 ```{r}
 pwr_long %>%
@@ -238,9 +349,17 @@ pwr_long %>%
     xlab("Iteration")+
     ylab("Power")
 
+pwr_long %>%
+  group_by(block, trial, channel) %>%
+  summarize(avg_signal = mean(signal)) %>%
+  ggplot(aes(x = trial, y = avg_signal))+
+    geom_point()
+
 ```
 
-We now look at LI during the trial phase of interest: NF. First, we confirm the LI calculations. Indeed, these are easily confirmed as per the histogram. We then examine the grand average for a NF trial.
+
+
+##### We now look at LI during the trial phase of interest: NF. First, we confirm the LI calculations. Indeed, these are easily confirmed as per the histogram. We then examine the grand average for a NF trial.
 
 ```{r}
 pwr %>%
