@@ -61,15 +61,15 @@ try
     age = char(dems(2));
     sex = char(dems(3));
     hand = char(dems(4));
-    task = char(dems(5));
+    task_str = char(dems(5));
 
-    while (strcmp(hand, 'r') ~= 1 && strcmp(hand, 'l') ~= 1) ||  (strcmp(sex, 'm') ~= 1 && strcmp(sex, 'f') ~= 1) ||  (strcmp(task, 'MI') ~= 1 && strcmp(task, 'ME') ~= 1)
+    while (strcmp(hand, 'r') ~= 1 && strcmp(hand, 'l') ~= 1) ||  (strcmp(sex, 'm') ~= 1 && strcmp(sex, 'f') ~= 1) ||  (strcmp(task_str, 'MI') ~= 1 && strcmp(task_str, 'ME') ~= 1)
         dems = inputdlg(prompt,dlg_title,num_lines);
         id = char(dems(1));
         age = char(dems(2));
         sex = char(dems(3));
         hand = char(dems(4));
-        task = char(dems(5));
+        task_str = char(dems(5));
     end
     
     % get numbers
@@ -92,9 +92,9 @@ try
         disp('ERROR: handedness');  % should also get and error when putting in response matrix
     end  
     
-    if (strcmp(task, 'MI') == 1)
+    if (strcmp(task_str, 'MI') == 1)
         task = 1;
-    elseif (strcmp(task, 'ME') == 1)
+    elseif (strcmp(task_str, 'ME') == 1)
         task = 2;
     else
         disp('ERROR: block condition');  % should also get and error when putting in response matrix
@@ -184,7 +184,7 @@ try
     
     % NF time frames 
     NF_TIME = 5;
-    NF_WAIT_FRAMES = 3;
+    NF_WAIT_FRAMES = 5;
     NF_time_frames = round(NF_TIME / ifi / NF_WAIT_FRAMES);
     
     % Fixation interval time in seconds and frames
@@ -201,13 +201,17 @@ try
     %                       Conditions
     %----------------------------------------------------------------------
     
-    NUM_BLOCKS = 1;
+    NUM_EXPERIMENTAL_BLOCKS = 4;
+    
+    num_blocks = NUM_EXPERIMENTAL_BLOCKS + 1;
     
     % cue location
     cue_locs_list = {'left', 'right'};
     cue_locs = [1, 2];
+    
+    NUM_PRACTICE_TRIALS = 1;
 
-    TRIALS_PER_CONDITION = 5;
+    TRIALS_PER_CONDITION = 30;
     cond_matrix = repmat(cue_locs, 1, TRIALS_PER_CONDITION);
 
     % Get the size of the matrix
@@ -283,7 +287,9 @@ try
     %                       Experimental Loop
     %----------------------------------------------------------------------
 
-    for block = 1:NUM_BLOCKS
+    for block = 1:num_blocks
+        
+        num_trials_in_this_block = num_trials;
         
         % Randomize the conditions
         shuffler = Shuffle(1:num_trials);
@@ -296,6 +302,27 @@ try
         cond_matrix_shuffled = [cond_matrix_shuffled2; itis];
         
         if block == 1
+            
+            num_trials_in_this_block = NUM_PRACTICE_TRIALS;
+            
+            tic;
+            while toc < 5
+                %------------------- Block Instruction Message ------------------------
+                Screen('TextSize', window, 36); 
+                DrawFormattedText(window, 'This is a practice block.',...
+                    'center', 'center', white );
+                Screen('Flip', window);
+                %----------------------------------------------------------------------
+            end
+            
+            %------------------- Block Instruction Message ------------------------
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'This is a practice block.\n\n\nPress Any Key To Begin the Block',...
+                'center', 'center', white );
+            Screen('Flip', window);
+%             KbStrokeWait; 
+            %----------------------------------------------------------------------
+            
             if task == 1
 
                 tic;
@@ -340,10 +367,18 @@ try
                 disp('ERROR: block condition not defined')       
             end
             
+        elseif block == 2
+            %------------------- Block Instruction Message ------------------------
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'This is an experimental block.\n\n\nPress Any Key To Begin the Block',...
+                'center', 'center', white );
+            Screen('Flip', window);
+%             KbStrokeWait; 
+            %----------------------------------------------------------------------
         else
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Take a Break!\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'Take a break!\n\n\nPress Any Key To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
 %             KbStrokeWait; 
@@ -351,16 +386,20 @@ try
         end
         
         
-        for trial = 1:num_trials
+        
+        for trial = 1:num_trials_in_this_block
           
 
 %             -------------------Trial Initiation message --------------------------
 %             Screen('TextSize', window, 36); 
-%             DrawFormattedText(window, 'Press Any Key To Begin the Trial',...
+%             DrawFormattedText(window, 'Press Any Key To Begin the
+%             Trial',...
 %                 'center', 'center', white );
 %             Screen('Flip', window);
 %             KbStrokeWait; 
 %             ----------------------------------------------------------------------
+
+            cue_loc_idx = cond_matrix_shuffled(1,trial);  % define cue location id ahead of time
 
 
             %----------------------------ITI --------------------------------------
@@ -374,7 +413,6 @@ try
             %------------ Save Data -----------%
             trial_stage = 1;
             iteration = 1;
-            cue_loc_idx = NaN;
 
             nrow = size(temp_data,2);
             raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
@@ -397,7 +435,7 @@ try
 
             %------------ Save Data -----------%
             % Pxx(:,1) is C3 whereas P(:,2) is C4 (i.e. left to right)
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
 
             if trial == 1 
                 pwr_mat = pwr_mat_temp;
@@ -433,7 +471,7 @@ try
 
 
                  %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -471,7 +509,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -506,7 +544,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -520,7 +558,6 @@ try
 
 
             %--------------------- Draw the cue -----------------------------------
-            cue_loc_idx = cond_matrix_shuffled(1,trial);
             cue_loc = cue_locs_list(cue_loc_idx);
 
             if strcmp(cue_loc, 'right')
@@ -558,7 +595,7 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
@@ -594,7 +631,7 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
@@ -643,12 +680,12 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
             pwr_mat = [pwr_mat; pwr_mat_temp];
             %----------------------------------%
 
 
-            NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX);
+            NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc);
 
             % Draw NF bar 
             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
@@ -684,12 +721,12 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration ts(end) power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI];
                 pwr_mat = [pwr_mat; pwr_mat_temp];
                 %----------------------------------%
 
 
-                NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX);
+                NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc);
 
                 % Draw NF bar
                 Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
@@ -703,29 +740,29 @@ try
 
         end
         
+        % write response matrix to csv
+        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/p%i_raw_%s_block_%i.csv', id, task_str, block), raw_mat);
+        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/p%i_pwr_%s_block_%i.csv', id, task_str, block), pwr_mat);
+
     end
     
     
     %------------------- End of Experiment --------------------------------
     Screen('TextSize', window, 36); 
-    DrawFormattedText(window, 'You Have Succesfully Completed The Experiment' ,...
+    DrawFormattedText(window, 'You have succesfully completed the experiment' ,...
     'center', 'center', white );
     Screen('Flip', window);
     tic;
     while toc < 3 end
 
     Screen('TextSize', window, 36); 
-    DrawFormattedText(window, 'The Experimenter Should Be With You Shortly',...
+    DrawFormattedText(window, 'The experimenter should be with you shortly',...
     'center', 'center', white );
     Screen('Flip', window);
 %     KbStrokeWait; 
     %----------------------------------------------------------------------
     
     
-    % write response matrix to csv
-    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_raw_block_%i.csv', id), raw_mat, block);
-    csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%i_pwr_block_%i.csv', id), pwr_mat, block);
-  
     % Clear the screen
     sca;
 catch
