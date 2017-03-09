@@ -304,25 +304,7 @@ try
         if block == 1
             
             num_trials_in_this_block = NUM_PRACTICE_TRIALS;
-            
-            tic;
-            while toc < 5
-                %------------------- Block Instruction Message ------------------------
-                Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'This is a practice block.',...
-                    'center', 'center', white );
-                Screen('Flip', window);
-                %----------------------------------------------------------------------
-            end
-            
-            %------------------- Block Instruction Message ------------------------
-            Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'This is a practice block.\n\n\nPress Any Key To Begin the Block',...
-                'center', 'center', white );
-            Screen('Flip', window);
-%             KbStrokeWait; 
-            %----------------------------------------------------------------------
-            
+           
             if task == 1
 
                 tic;
@@ -340,7 +322,7 @@ try
                 DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Block',...
                     'center', 'center', white );
                 Screen('Flip', window);
-    %             KbStrokeWait; 
+                KbStrokeWait; 
                 %----------------------------------------------------------------------
 
             elseif task == 2
@@ -360,12 +342,30 @@ try
                 DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Begin the Block',...
                     'center', 'center', white );
                 Screen('Flip', window);
-    %             KbStrokeWait; 
+                KbStrokeWait; 
                 %----------------------------------------------------------------------
 
             else
                 disp('ERROR: block condition not defined')       
             end
+            
+            tic;
+            while toc < 5
+                %------------------- Block Instruction Message ------------------------
+                Screen('TextSize', window, 36); 
+                DrawFormattedText(window, 'This is a practice block.',...
+                    'center', 'center', white );
+                Screen('Flip', window);
+                %----------------------------------------------------------------------
+            end
+            
+            %------------------- Block Instruction Message ------------------------
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'This is a practice block.\n\n\nPress Any Key To Begin the Block',...
+                'center', 'center', white );
+            Screen('Flip', window);
+            KbStrokeWait; 
+            %----------------------------------------------------------------------
             
         elseif block == 2
             %------------------- Block Instruction Message ------------------------
@@ -373,7 +373,7 @@ try
             DrawFormattedText(window, 'This is an experimental block.\n\n\nPress Any Key To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
-%             KbStrokeWait; 
+            KbStrokeWait; 
             %----------------------------------------------------------------------
         else
             %------------------- Block Instruction Message ------------------------
@@ -381,7 +381,7 @@ try
             DrawFormattedText(window, 'Take a break!\n\n\nPress Any Key To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
-%             KbStrokeWait; 
+            KbStrokeWait; 
             %----------------------------------------------------------------------
         end
         
@@ -759,7 +759,7 @@ try
     DrawFormattedText(window, 'The experimenter should be with you shortly',...
     'center', 'center', white );
     Screen('Flip', window);
-%     KbStrokeWait; 
+    KbStrokeWait; 
     %----------------------------------------------------------------------
     
     
