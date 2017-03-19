@@ -14,9 +14,7 @@ library(signal)
 library(tidyverse)
 library(rstan)
 library(bspec)
-
 ```
-
 
 ## Load and Tidy Data
 
@@ -116,9 +114,21 @@ raw_long %>%
     ylab("Estimated - Recorded Times (s)")
 
 range(raw_long$time_est - raw_long$time_adj)
-  
 ```
 
+##### We check for any time lags or other timing issues. Interstingly there appears to be a consistent lag at the end of blocks, but only for the cue trial stage. Additionally, there are a few scattered timing mishaps for the ME fixation time stage. 
+
+```{r}
+raw_long %>%
+  group_by(block_cond, block, trial, trial_stage) %>%
+  summarize(max_time = max(time_est)) %>%
+  filter(block != "1", trial_stage != "iti") %>%
+  mutate(time_stage = as.numeric(block) * 60 + as.numeric(trial)) %>%
+  group_by(block_cond, time_stage, trial_stage) %>%
+  ggplot()+
+    geom_point(aes(x=time_stage, y=max_time))+
+    facet_grid(block_cond~trial_stage)
+```
 
 
 ##### Look at raw waveforms and epochs.
