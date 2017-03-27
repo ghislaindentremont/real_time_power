@@ -15,7 +15,6 @@ library(rstan)
 rstan_options(auto_write = TRUE)
 
 library(devtools)
-install_github('mike-lawrence/ezStan')
 library(ezStan)
 ```
 
@@ -35,12 +34,6 @@ dat %>%
 		subj
 	) -> dat
 ```
-
-<!-- ##### Clean -->
-
-<!-- ```{r} -->
-<!-- dat[!complete.cases(dat),] -->
-<!-- ``` -->
 
 ##### Within Contrasts
 
@@ -70,47 +63,287 @@ View(B)
 
 # Sample
 
-##### Run model and save
+<!-- ## Run SIMPLE model and save -->
+
+<!-- ```{r include = F} -->
+<!-- post_s = rstan::stan( -->
+<!-- 	file = 'bayesian_analysis_constant_noise.stan' -->
+<!-- 	, data = list( -->
+<!-- 		nY = nrow(dat) -->
+<!-- 		, Y = dat$log_relative_power -->
+<!-- 		, nW = ncol(W) -->
+<!-- 		, W = W -->
+<!-- 		, nB = ncol(B) -->
+<!-- 		, B = B -->
+<!-- 		, nSubj = length(unique(dat$subj)) -->
+<!-- 		, Subj = as.numeric(factor(dat$subj)) #ensures 1-nSubj -->
+<!-- 	) -->
+<!-- 	, seed = 1 -->
+<!-- 	, chains = 4 -->
+<!-- 	, cores = 4 -->
+<!-- 	, iter = 5e1 -->
+<!-- ) -->
+
+<!-- save( -->
+<!-- 	post_s -->
+<!-- 	, file = 'post_s.rdata' -->
+<!-- ) -->
+
+<!-- ``` -->
+
+<!-- ##### simple output -->
+
+<!-- ```{r} -->
+<!-- load('post_s.rdata') -->
+
+<!-- stan_summary( -->
+<!-- 	from_stan = post_s -->
+<!-- 	, par = 'coef_means' -->
+<!-- 	, W = W -->
+<!-- 	, B = B -->
+<!-- ) -->
+
+<!-- stan_summary( -->
+<!-- 	from_stan = post_s -->
+<!-- 	, par = 'coef_sds' -->
+<!-- 	, W = W -->
+<!-- 	, B = B -->
+<!-- ) -->
+
+<!-- stan_summary( -->
+<!-- 	from_stan = post_s -->
+<!-- 	, par = 'cor_mat' -->
+<!-- ) -->
+
+<!-- stan_summary( -->
+<!-- 	from_stan = post_s -->
+<!-- 	, par = 'noise_orig' -->
+<!-- ) -->
+<!-- ``` -->
+
+
+## Run model and save
+
+I ran the model on a 16 core vCPU through Google Cloud Compute Engine. 
 
 ```{r}
-post_c = rstan::stan(
-	file = 'bayesian_analysis.stan'
-	, data = list(
-		nY = nrow(dat)
-		, Y = dat$log_relative_power
-		, nW = ncol(W)
-		, W = W
-		, nB = ncol(B)
-		, B = B
-		, nSubj = length(unique(dat$subj))
-		, Subj = as.numeric(factor(dat$subj)) #ensures 1-nSubj
-	)
-	, seed = 1
-	, chains = 4
-	, cores = 4
-	, iter = 1e3
+#package in list for Stan
+data_for_stan = list(
+	#nTrials: num trials
+	nTrials = nrow(dat)
+	#power: power outcomes
+	, power = scale(dat$log_relative_power)[,1] #scaling for easy priors
+	#nS: num subjects
+	, nS = length(unique(dat$subj))
+	#S: trial-by-trial subject labels
+	, S = as.numeric(factor(dat$subj))
+	#nWmpower: num within predictors on mean power
+	, nWmpower = ncol(W)
+	#nBmpower: num group predictors on mean power
+	, nBmpower = ncol(B)
+	#nWspower: num within predictors on sd power
+	, nWspower = ncol(W)
+	#nBspower: num group predictors on sd power
+	, nBspower = ncol(B)
+	#Wmpower: within predictors for mean power
+	, Wmpower = W
+	#Bmpower: between predictors for mean power
+	, Bmpower = B
+	#Wspower: within predictors for sd power
+	, Wspower = W #for just intercepts do: matrix(W[,1],ncol=1)
+	#Bspower: between predictors for sd power
+	, Bspower = B #for just intercepts do: matrix(B[,1],ncol=1)
 )
 
-save(
-	post_c
-	, file = 'post_c.rdata'
+
+# # Compile & sample the model ----
+# post_c = rstan::stan(
+# 	file = 'bayesian_analysis.stan'
+# 	, data = data_for_stan
+# 	, seed = 1
+# 	, chains = 4
+# 	, cores = 4 #set this to # of physical cores on your system
+# 	, iter = 2e3
+# 	, init = 0
+# 	, pars = c('normal01','cors_helper') #don't bother saving these variables
+# 	, include = FALSE
+# )
+# save(post_c,file='post_c.rdata')
+```
+
+## Output
+
+##### Scaled coefficients
+
+The posterior estimates are all scaled. We do see that all parameters have an Rhat of 1, and have an effective N above 1000. The exception is the intercept term of the coefficient means (i.e. the overall mean), with a little over 600 effective samples.  
+
+It took approximately 20 hours to run 2000 iterations of the model on 16 chains (~20 hours per chain).  
+
+We can interpret the scaled effects to the extent that they are credibly non-zero. We see an effect of 
+
+```{r}
+load('post_c.rdata')
+summary(rowSums(get_elapsed_time(post_c)/60/60))
+
+# this is still scaled
+stan_summary(
+	from_stan = post_c
+	, par = 'coefMpower'
+	, W = W
+	, B = B
+)
+
+stan_summary(
+	from_stan = post_c
+	, par = 'coefSpower'
+	, W = W
+	, B = B
+)
+
+stan_summary(
+	from_stan = post_c
+	, par = 'sdsW'
+)
+
+stan_summary(
+	from_stan = post_c
+	, par = 'corsW'
+	, is_cor = T
 )
 ```
 
-##### Examine posterior
+##### Scaled condition estimates
+
+For coefficient means. The three-way interaction is very apparent (i.e. ME makes the increase of LI with trial greater than does MI).
 
 ```{r}
-stan_summary(
+cp = get_condition_post(
 	from_stan = post_c
-	, par = 'coef_sds'
+	, par = 'coefMpower'
+	, W = W
+	, B = B
+	, collapse_intercept_to_median = T  # I'm assuming that we do this to get rid of the uncertainty associated with the intercept so that we can focus more on the uncertainty associated with the effects.
 )
-stan_summary(
+
+cp %>%
+	dplyr::group_by(
+		task
+		, trial
+		, laterality
+	) %>%
+	dplyr::summarise(
+		med = median(value)
+		, lo95 = quantile(value,.025)
+		, hi95 = quantile(value,.975)
+		, lo50 = quantile(value,.25)
+		, hi50 = quantile(value,.75)
+	) %>%
+	ggplot() +
+  geom_line(aes(x=trial, y=med, color = laterality))+
+  geom_line(aes(x=trial, y=hi95, color = laterality), linetype = "dashed")+
+  geom_line(aes(x=trial, y=lo95, color = laterality), linetype = "dashed")+
+  geom_line(aes(x=trial, y=hi50, color = laterality), linetype = "dotted")+
+  geom_line(aes(x=trial, y=lo50, color = laterality), linetype = "dotted")+
+	facet_grid(
+		. ~ task 
+	) 
+
+cp %>%
+	dplyr::group_by(
+		task
+		# , trial
+		, laterality
+	) %>%
+	dplyr::summarise(
+		med = median(value)
+		, lo95 = quantile(value,.025)
+		, hi95 = quantile(value,.975)
+		, lo50 = quantile(value,.25)
+		, hi50 = quantile(value,.75)
+	)  %>%
+	geom_boxplot(
+		mapping = aes(
+			x = task
+			, middle = med
+			, ymin = lo95
+			, ymax = hi95
+			, lower = lo50
+			, upper = hi50
+			, width = .1
+		)
+		, stat = 'identity'
+		, position = 'identity'
+		, alpha = .5
+	)	+ 
+  facet_grid(
+		. ~ laterality
+	) 
+
+```
+
+For noise coefficients. These are logs of scaled noise. 
+
+```{r}
+cps = get_condition_post(
 	from_stan = post_c
-	, par = 'coef_means'
+	, par = 'coefSpower'
+	, W = W
+	, B = B
+	, collapse_intercept_to_median = T  # I'm assuming that we do this to get rid of the uncertainty associated with the intercept so that we can focus more on the uncertainty associated with the effects.
 )
-stan_summary(
-	from_stan = post_c
-	, par = 'cor_mat'
-)
+
+cps %>%
+	dplyr::group_by(
+		task
+		, trial
+		, laterality
+	) %>%
+	dplyr::summarise(
+		med = median(value)
+		, lo95 = quantile(value,.025)
+		, hi95 = quantile(value,.975)
+		, lo50 = quantile(value,.25)
+		, hi50 = quantile(value,.75)
+	) %>%
+	ggplot() +
+  geom_line(aes(x=trial, y=med, color = laterality))+
+  geom_line(aes(x=trial, y=hi95, color = laterality), linetype = "dashed")+
+  geom_line(aes(x=trial, y=lo95, color = laterality), linetype = "dashed")+
+  geom_line(aes(x=trial, y=hi50, color = laterality), linetype = "dotted")+
+  geom_line(aes(x=trial, y=lo50, color = laterality), linetype = "dotted")+
+	facet_grid(
+		. ~ task 
+	) 
+
+cps %>%
+	dplyr::group_by(
+		task
+		# , trial
+		, laterality
+	) %>%
+	dplyr::summarise(
+		med = median(value)
+		, lo95 = quantile(value,.025)
+		, hi95 = quantile(value,.975)
+		, lo50 = quantile(value,.25)
+		, hi50 = quantile(value,.75)
+	)  %>%
+	geom_boxplot(
+		mapping = aes(
+			x = task
+			, middle = med
+			, ymin = lo95
+			, ymax = hi95
+			, lower = lo50
+			, upper = hi50
+			, width = .1
+		)
+		, stat = 'identity'
+		, position = 'identity'
+		, alpha = .5
+	)	+ 
+  facet_grid(
+		. ~ laterality
+	) 
 ```
 

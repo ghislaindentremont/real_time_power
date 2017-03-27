@@ -13,6 +13,7 @@ library(signal)
 library(tidyverse)
 library(rstan)
 library(bspec)
+library(corrplot)
 ```
 
 ## Load and Tidy Data
@@ -300,6 +301,26 @@ mean_relative_power_by_NF_trial %>%
     ylab("log of mean relative power")
 ```
 
+I also want to see if the amount of noise is variable among sub-groupings for this participant. At the very least, I'll want to assume that noise is variable among participants.  
+
+There appears to be more variablity in the ME condition compared to the MI condition. However, no such discrepency in noise seems to exists between laterality conditions. Noise appears pretty consistent trough trials.
+
+```{r}
+sd(mean_relative_power_by_NF_trial$log_mean_relative_power, na.rm = T)
+
+mean_relative_power_by_NF_trial %>%
+  group_by(block_cond, laterality) %>%
+  summarize(SDs = sd(log_mean_relative_power, na.rm = T))
+
+mean_relative_power_by_NF_trial %>%
+  ggplot(aes(x=total_trial, y=log_mean_relative_power))+
+    geom_point()+
+    facet_grid(block_cond ~ laterality)+
+    geom_hline(yintercept=0, linetype = "dashed")+
+    ylab("log of mean relative power")
+```
+
+
 ##### Generate data
 
 We have three within subject factors: (1) task, (2) trial, (3) laterality. We want to generate data in log-scale. 
@@ -307,7 +328,6 @@ We have three within subject factors: (1) task, (2) trial, (3) laterality. We wa
 ```{r}
 set.seed(1)
 N = 40 #number of subjects
-noise = 0.5
 
 ### population parameters
 # overall mean
@@ -327,7 +347,7 @@ laterality_effect_sd = 0.2
 
 ## 2-way interactions 
 # LI increases with trial
-trial_laterality_interaction_mean = 0.5/240
+trial_laterality_interaction_mean = 0.2/240
 trial_laterality_interaction_sd = 0.2/240
 # task does not effect the slope of trial 
 trial_task_interaction_mean = 0/240
@@ -337,8 +357,8 @@ task_laterality_interaction_mean = 0
 task_laterality_interaction_sd = 0.1
 
 ## 3-way interaction
-# ME makes the increase of LI with trial greater than MI
-trial_task_laterality_interaction_mean = 1/240
+# ME makes the increase of LI with trial greater than does MI
+trial_task_laterality_interaction_mean = -0.5/240
 trial_task_laterality_interaction_sd = 0.1/240
   
 # indicates that the more ERD for a given participants, the greater the difference between tasks
@@ -445,7 +465,8 @@ subjCoefs = MASS::mvrnorm(N
                             )
                           ,v
                           )
-cor(subjCoefs)
+C = cor(subjCoefs)
+corrplot(C)
 
 #create data frame
 dat = expand.grid(
@@ -475,17 +496,37 @@ dat$in4 = dat$e1 * dat$e2 * dat$e3
 dat$obs = rowSums( subjCoefs[dat$subj,] * as.matrix(dat[,2:ncol(dat)],ncol=ncol(dat)) )
 dat[dat$subj==1,]
 
-dat$log_relative_power = rnorm(nrow(dat), dat$obs, noise)
+noise_mean = 0.4
+noise_sd = 0.2
+noise_task_effect = 0.3
+
+# overall mean noise
+curve(dlnorm(x, log(noise_mean)-noise_sd/2, noise_sd), ylab = "density", xlab = "noise", main = "overall mean")
+# in ME task
+curve(dlnorm(x, log(noise_mean)-noise_sd/2 + noise_task_effect, noise_sd), ylab = "density", xlab = "noise", main = "+ task effect")
+# in MI task
+curve(dlnorm(x, log(noise_mean)-noise_sd/2 - noise_task_effect, noise_sd), ylab = "density", xlab = "noise", main = "- task effect")
+
+noise_subj = dat %>%
+  group_by(subj, e1) %>%
+  summarize(noise_subj = rlnorm(1, (log(noise_mean) - noise_sd/2) - e1*noise_task_effect, noise_sd))
+
+hist(noise_subj$noise_subj, main = "sample noise")
+
+dat = dat %>%
+  left_join(noise_subj)
+
+dat$log_relative_power = rnorm(nrow(dat), dat$obs, dat$noise_subj)
 
 names(dat)[3:5] = c("task", "trial", "laterality")
-dat$task = factor(dat$task, labels = c("ME", "MI"))
+dat$task = factor(dat$task, levels = c(-.5, .5), labels = c("ME", "MI"))
 dat$trial = dat$trial 
-dat$laterality = factor(dat$laterality, labels = c("contra", "ipsi"))
+dat$laterality = factor(dat$laterality, levels = c(-.5, .5), labels = c("contra", "ipsi"))
 
 hist(dat$log_relative_power, main = "", xlab = "log relative power")
 
 dat %>% 
-  filter(subj <= 4) %>%
+  dplyr::filter(subj <= 4) %>%
   ggplot()+
     geom_point(aes(x=trial, y=log_relative_power, color = laterality), size = 0.5, alpha=0.3)+
     geom_line(aes(x=trial, y=obs, color = laterality), size=1)+

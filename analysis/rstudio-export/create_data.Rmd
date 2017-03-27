@@ -1,0 +1,541 @@
+---
+title: "Create Data"
+output: html_notebook
+---
+
+# Data Processing
+
+## Load Packages 
+
+```{r message=FALSE, echo=FALSE}
+library(MASS)
+library(signal)
+library(tidyverse)
+library(rstan)
+library(bspec)
+library(corrplot)
+```
+
+## Load and Tidy Data
+
+```{r message=FALSE, echo=FALSE}
+setwd("/Volumes/LaCie/Experiments/NF_data/Piloting")
+
+raw = map_df(
+  .x = list.files(
+    pattern = "p101_raw"
+  )
+  , .f = function(file) {
+    read_csv(
+      file = file
+      , col_names = FALSE
+    )
+  }
+)
+
+names(raw) = c('id', 'age', 'sex', 'hand', 'year', 'month', 'day', 'hour', 'minute', 'seconds', 'block' , 'block_cond', 'trial', 'cue_loc', 'iti', 'trial_stage', 'iteration', 'time', 'Ch1', 'Ch2', 'Ch3', 'Ch4', 'Ch5', 'Ch6', 'Ch7', 'Ch8', 'Ch9', 'Ch10', 'Ch11', 'Ch12', 'Ch13', 'Ch14')
+
+raw$id = factor(raw$id)
+raw$sex = factor(raw$sex, levels = c(1, 2), labels = c("male", "female"))
+raw$hand = factor(raw$hand, levels = c(1, 2), labels = c("left", "right"))
+raw$block = factor(raw$block, levels = c(1:5), labels = c("1", "2", "3", "4", "5"))
+raw$block_cond = factor(raw$block_cond, levels = c(1, 2), labels = c("MI", "ME"))
+raw$cue_loc = factor(raw$cue_loc, levels = c(1, 2), labels = c("left", "right"))
+raw$trial_stage = factor(raw$trial_stage, levels = c(1:4), labels = c("iti", "fixation", "cue", "NF"))
+
+raw_long = raw %>%
+  gather(channel, signal, Ch1:Ch14, factor_key = TRUE)
+```
+
+##### Add adjusted time column 
+
+We confirm that the estimated times match the actual times to within 10 ms. We will be using the estimated times as they are consistent.
+
+```{r, echo=FALSE}
+raw_long = raw_long %>%
+  group_by(block_cond, block, trial, trial_stage, channel) %>%
+  mutate(
+    time_adj = time - min(time)
+    , time_est = seq(0, (1/128)*(length(id)-1), by = 1/128)
+    )
+
+range(raw_long$time_est - raw_long$time_adj)
+```
+
+##### Filter data
+
+```{r, echo=FALSE}
+bu2 = butter(6, c(13,30)/(128/2), type = 'pass')
+filtered_zero = raw_long %>%
+  group_by(block_cond, channel) %>%
+  mutate(butter_filtered = signal::filtfilt(bu2, signal)) %>%
+  mutate(filtered_signal = as.numeric(butter_filtered)) %>%
+  mutate(power = filtered_signal^2)
+```
+
+##### Get rid of practice block
+
+```{r, echo=FALSE}
+filtered_zero = filtered_zero %>%
+  dplyr::filter(block != "1")
+```
+
+##### Create laterality variable
+
+```{r, echo=FALSE}
+filtered_zero = filtered_zero %>%
+  dplyr::filter(channel == "Ch8" | channel == "Ch12") %>%
+  mutate(laterality = ifelse(
+    (cue_loc == "right" & channel == "Ch8") | (cue_loc == "left" & channel == "Ch12")
+      , "contra"
+      , "ipsi"
+    )
+  ) 
+```
+
+##### Get baseline
+
+The baselines are based on an average over both channels of interest. We expect baseline values for both channels to be very similar.
+
+```{r}
+baselines = filtered_zero %>%
+  dplyr::filter(trial_stage == "fixation") %>%
+  group_by(block_cond, block, trial) %>%
+  summarize(baseline = mean(power))
+```
+
+##### Get relative power
+
+We get an estimate of relative power for each time point, for each trial, for each laterality.
+
+```{r}
+relative_power = filtered_zero %>%
+  dplyr::filter(trial_stage != "iti") %>%
+  group_by(block_cond, block, trial, laterality) %>%
+  mutate(time_est_ERD = seq(0, (1/128)*(length(id)-1), by = 1/128)) %>%
+  left_join(baselines) %>%
+  mutate(relative_power = (power/baseline))
+```
+
+##### Get average relative power, for each NF trial
+
+We only take relative power between the 1 and 4 second marks during NF (5 secs total).
+
+```{r}
+mean_relative_power_by_NF_trial = relative_power %>%
+  dplyr::filter(trial_stage == "NF", time_est < 4, time_est > 1) %>%
+  group_by(block_cond, block, trial, laterality) %>% 
+  summarize(mean_relative_power = mean(relative_power)) %>%
+  mutate(log_mean_relative_power = log(mean_relative_power))
+```
+
+# Establishing Generative Model for Data
+
+## Lognormal
+
+##### Plotting raw data
+
+First, I plot the distribution of trial-wise relative power values, for each laterality (they should be approximately the same), and each block condition. There does appear to be some difference in the shape of the distributions between the block conditions, but no noticeable difference between distributions for contra and ipsi. The log-transformed data may very well come from a normal population.
+
+```{r}
+mean_relative_power_by_NF_trial %>%
+  ggplot()+
+    geom_histogram(aes(x=mean_relative_power, y=..density..), bins = 50)+
+    facet_grid(laterality~block_cond)+
+    ggtitle("Non-transformed Relative Power")+
+    xlab("Relative Power (Power/Baseline)")+
+    ylab("Density")
+
+mean_relative_power_by_NF_trial %>%
+  ggplot(aes(x=log_mean_relative_power))+
+    geom_histogram(aes(y=..density..), bins = 50)+
+    facet_grid(laterality~block_cond)+
+    ggtitle("Log-transformed Relative Power")+
+    xlab("Log Relative Power Log(Power/Baseline)")+
+    ylab("Density")
+
+mean_relative_power_by_NF_trial %>%
+  ggplot(aes(x=log_mean_relative_power))+
+    geom_histogram(aes(y=..density..), bins = 50)+
+    facet_grid(.~block_cond)+
+    ggtitle("Combined Data: Log-transformed Relative Power")+
+    xlab("Log Relative Power Log(Power/Baseline)")+
+    ylab("Density")
+```
+
+##### Simulating samples from normal distribution
+
+The simulations below show that it is very likely that the transformed data come from normal distribution. However, it is clear that the model would be best to account for an effect of block condition on both the mean and standard deviation of the distribution (which is for a particular participant).
+
+```{r}
+y = replicate(50, {
+  rnorm(
+    240
+    , mean(mean_relative_power_by_NF_trial$log_mean_relative_power,na.rm=T)
+    , sd(mean_relative_power_by_NF_trial$log_mean_relative_power,na.rm=T)
+  )
+  })
+
+y_tibb = as_tibble(y) %>% 
+  gather(simulation, value, 1:ncol(y))
+
+mean_relative_power_by_NF_trial %>%
+  ggplot()+
+    geom_density(aes(x=log_mean_relative_power, y=..density.., color=block_cond), size=1)+
+    geom_density(data=y_tibb, aes(x=value, y=..density.., group=simulation), size=0.1, position="identity")+
+    ggtitle("MI AND ME")+
+    xlab("Log Relative Power Log(Power/Baseline)")+
+    ylab("Density")
+
+
+
+mean_sum = mean_relative_power_by_NF_trial %>%
+  group_by(block_cond) %>%
+  summarize(
+    mean = mean(log_mean_relative_power, na.rm = T)
+    , sd = sd(log_mean_relative_power, na.rm = T)
+    )
+
+y_MI = replicate(50, {
+  rnorm(
+    240
+    , mean_sum$mean[mean_sum$block_cond == "MI"]
+    , mean_sum$sd[mean_sum$block_cond == "MI"]
+  )
+  })
+
+y_MI_tibb = as_tibble(y_MI) %>%
+  gather(simulation, value, 1:ncol(y_MI))
+
+mean_relative_power_by_NF_trial %>%
+  dplyr::filter(block_cond == "MI")%>%
+  ggplot()+
+    geom_density(aes(x=log_mean_relative_power, y=..density..), color="red", size=1)+
+    geom_density(data=y_MI_tibb, aes(x=value, y=..density.., group=simulation), size=0.1, position="identity")+
+    ggtitle("MI")+
+    xlab("Log Relative Power Log(Power/Baseline)")+
+    ylab("Density")
+
+ 
+
+y_ME = replicate(50, {
+  rnorm(
+    240
+    , mean_sum$mean[mean_sum$block_cond == "ME"]
+    , mean_sum$sd[mean_sum$block_cond == "ME"]
+  )
+  })
+
+y_ME_tibb = as_tibble(y_ME) %>%
+  gather(simulation, value, 1:ncol(y_ME))
+
+mean_relative_power_by_NF_trial %>%
+  dplyr::filter(block_cond == "ME")%>%
+  ggplot()+
+    geom_density(aes(x=log_mean_relative_power, y=..density..), color="red", size=1)+
+    geom_density(data=y_ME_tibb, aes(x=value, y=..density.., group=simulation), size=0.1, position="identity")+
+    ggtitle("ME")+
+    xlab("Log Relative Power Log(Power/Baseline)")+
+    ylab("Density")
+```
+
+##### Average ERD timecourse
+
+We generate am average ERD timecourse for the pilot participant. This is done by (1) averaging over trials, (2) smoothing (sma), and (3) taking the log of the average relative power. We only visualize the first 30 trials of each block because of a timing issue present in the other 30 trials in each block.
+
+```{r}
+relative_power %>%
+  dplyr::filter(trial <= 30) %>%
+  group_by(block_cond, time_est_ERD, laterality) %>%
+  summarize(avg_relative_power = mean(relative_power, na.rm = T)) %>%
+  group_by(block_cond, laterality) %>%
+  mutate(sma_relative_power = stats::filter(avg_relative_power, rep(1/128, 128), sides=2)) %>%
+  mutate(log_sma_relative_power = log(sma_relative_power)) %>%
+  mutate(log_avg_relative_power = log(avg_relative_power)) %>%
+  ggplot()+
+    geom_line(aes(x=time_est_ERD, y=log_avg_relative_power, color = laterality), alpha = 0.2)+
+    geom_line(aes(x=time_est_ERD, y=log_sma_relative_power, color = laterality))+
+    facet_grid(.~block_cond)+
+    xlab("Trial Time (s)")+
+    ylab("Log of Average Relative Power")+
+    ggtitle("First 30 Trials") +
+    geom_vline(xintercept = 2, linetype = "dashed")+
+    geom_vline(xintercept = 2 + 1.25, linetype = "dashed")+
+    geom_hline(yintercept=0, linetype = "dashed")+
+    ylim(c(-1, 1))  # no avoid outlying noise at the end
+```
+
+# Create Data
+
+##### Look at pilot intercepts and effects
+
+We take the one pilot participant to be somewhat representative of the entire population.
+
+```{r}
+mean_relative_power_by_NF_trial = mean_relative_power_by_NF_trial %>%
+  mutate(total_trial = (as.numeric(block) - 2)*60 + trial)
+
+mean_relative_power_by_NF_trial %>%
+  group_by(block_cond, laterality) %>%
+  summarize(meanz = mean(log_mean_relative_power, na.rm = T))
+
+mean_relative_power_by_NF_trial %>%
+  group_by(block) %>%
+  summarize(by_block = mean(log_mean_relative_power, na.rm=T))
+
+mean_relative_power_by_NF_trial %>%
+  group_by(total_trial) %>%
+  summarize(regress = mean(log_mean_relative_power)) %>%
+  ggplot(aes(x=total_trial, y=regress))+
+    geom_smooth()+
+    geom_point()+
+    geom_hline(yintercept=0, linetype = "dashed")+
+    ylab("log of mean relative power")
+
+mean_relative_power_by_NF_trial$grouping = c(rep(c("MI contra", "MI ipsi"),240),  rep(c("ME contra", "ME ipsi"),240))
+
+mean_relative_power_by_NF_trial %>%
+  ggplot(aes(x=total_trial, y=log_mean_relative_power,  color=grouping))+
+    geom_smooth()+
+    geom_hline(yintercept=0, linetype = "dashed")+
+    ylab("log of mean relative power")
+```
+
+I also want to see if the amount of noise is variable among sub-groupings for this participant. At the very least, I'll want to assume that noise is variable among participants.  
+
+There appears to be more variablity in the ME condition compared to the MI condition. However, no such discrepency in noise seems to exists between laterality conditions. Noise appears pretty consistent trough trials.
+
+```{r}
+sd(mean_relative_power_by_NF_trial$log_mean_relative_power, na.rm = T)
+
+mean_relative_power_by_NF_trial %>%
+  group_by(block_cond, laterality) %>%
+  summarize(SDs = sd(log_mean_relative_power, na.rm = T))
+
+mean_relative_power_by_NF_trial %>%
+  ggplot(aes(x=total_trial, y=log_mean_relative_power))+
+    geom_point()+
+    facet_grid(block_cond ~ laterality)+
+    geom_hline(yintercept=0, linetype = "dashed")+
+    ylab("log of mean relative power")
+```
+
+
+##### Generate data
+
+We have three within subject factors: (1) task, (2) trial, (3) laterality. We want to generate data in log-scale. 
+
+```{r}
+set.seed(1)
+N = 40 #number of subjects
+
+### population parameters
+# overall mean
+intercept_mean = -0.2
+intercept_sd = 0.2
+
+## main effects
+# MI - ME
+task_effect_mean = 0.2
+task_effect_sd = 0.2
+# trial slope
+trial_effect_mean = -0.1/240
+trial_effect_sd = 0.2/240
+# ipsi - contra
+laterality_effect_mean = 0.1
+laterality_effect_sd = 0.2
+
+## 2-way interactions 
+# LI increases with trial
+trial_laterality_interaction_mean = 0.2/240
+trial_laterality_interaction_sd = 0.2/240
+# task does not effect the slope of trial 
+trial_task_interaction_mean = 0/240
+trial_task_interaction_sd = 0.1/240
+# task does not effect overall LI
+task_laterality_interaction_mean = 0
+task_laterality_interaction_sd = 0.1
+
+## 3-way interaction
+# ME makes the increase of LI with trial greater than does MI
+trial_task_laterality_interaction_mean = -0.5/240
+trial_task_laterality_interaction_sd = 0.1/240
+  
+# indicates that the more ERD for a given participants, the greater the difference between tasks
+intercept_task_effect_correlation = -0.5
+# indicates that the more ERD for a given participants, the more ERD as a function of trial
+intercept_trial_effect_correlation = 0.3
+# indicates that the more ERD for a given participants, the greater LI overall
+intercept_laterality_effect_correlation = -0.5
+
+#covariance matrix
+v = matrix(
+	data = c(
+		intercept_sd^2
+		, intercept_sd*task_effect_sd*intercept_task_effect_correlation
+		, intercept_sd*trial_effect_sd*intercept_trial_effect_correlation
+		, intercept_sd*laterality_effect_sd*intercept_laterality_effect_correlation
+		, 0
+		, 0
+		, 0
+		, 0
+
+		, intercept_sd*task_effect_sd*intercept_task_effect_correlation
+		, task_effect_sd^2
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+
+		, intercept_sd*trial_effect_sd*intercept_trial_effect_correlation
+		, 0
+		, trial_effect_sd^2
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+		
+		, intercept_sd*laterality_effect_sd*intercept_laterality_effect_correlation
+		, 0
+		, 0
+		, laterality_effect_sd^2
+		, 0
+		, 0
+		, 0
+		, 0
+
+		, 0
+		, 0
+		, 0
+		, 0
+		, trial_laterality_interaction_sd^2
+		, 0
+		, 0
+		, 0
+		
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+		, trial_task_interaction_sd^2
+		, 0
+		, 0
+    
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+		, task_laterality_interaction_sd^2
+		, 0
+		
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+		, 0
+		, trial_task_laterality_interaction_sd^2
+		
+	)
+	, nrow = 8
+	, ncol = 8
+)
+
+#actually sample the population
+subjCoefs = MASS::mvrnorm(N
+                          ,c(
+                            intercept_mean
+                            
+                            ,task_effect_mean
+                            , trial_effect_mean
+                            , laterality_effect_mean
+                            
+                            , trial_laterality_interaction_mean
+                            , trial_task_interaction_mean
+                            , task_laterality_interaction_mean
+                            
+                            , trial_task_laterality_interaction_mean
+                            )
+                          ,v
+                          )
+C = cor(subjCoefs)
+corrplot(C)
+
+#create data frame
+dat = expand.grid(
+	subj = 1:N
+	# intercept
+	, I = 1
+	# task
+	, e1 = c(-.5,.5)
+	# trial
+	, e2 = 1:240 # -120  # center trial so that setting this effect to zero means average
+	# laterality
+	, e3 = c(-.5,.5)
+)
+
+nrow(dat) == 240*2*2*N
+
+# trial_laterality_interaction_mean
+dat$in1 = dat$e2 * dat$e3
+# trial_task_interaction_mean
+dat$in2 = dat$e2 * dat$e1
+# task_laterality_interaction_mean
+dat$in3 = dat$e1 * dat$e3
+
+# trial_task_laterality_interaction_mean
+dat$in4 = dat$e1 * dat$e2 * dat$e3
+
+dat$obs = rowSums( subjCoefs[dat$subj,] * as.matrix(dat[,2:ncol(dat)],ncol=ncol(dat)) )
+dat[dat$subj==1,]
+
+noise_mean = 0.4
+noise_sd = 0.2
+noise_task_effect = 0.3
+
+# overall mean noise
+curve(dlnorm(x, log(noise_mean)-noise_sd/2, noise_sd), ylab = "density", xlab = "noise", main = "overall mean")
+# in ME task
+curve(dlnorm(x, log(noise_mean)-noise_sd/2 + noise_task_effect, noise_sd), ylab = "density", xlab = "noise", main = "+ task effect")
+# in MI task
+curve(dlnorm(x, log(noise_mean)-noise_sd/2 - noise_task_effect, noise_sd), ylab = "density", xlab = "noise", main = "- task effect")
+
+noise_subj = dat %>%
+  group_by(subj, e1) %>%
+  summarize(noise_subj = rlnorm(1, (log(noise_mean) - noise_sd/2) - e1*noise_task_effect, noise_sd))
+
+hist(noise_subj$noise_subj, main = "sample noise")
+
+dat = dat %>%
+  left_join(noise_subj)
+
+dat$log_relative_power = rnorm(nrow(dat), dat$obs, dat$noise_subj)
+
+names(dat)[3:5] = c("task", "trial", "laterality")
+dat$task = factor(dat$task, levels = c(-.5, .5), labels = c("ME", "MI"))
+dat$trial = dat$trial 
+dat$laterality = factor(dat$laterality, levels = c(-.5, .5), labels = c("contra", "ipsi"))
+
+hist(dat$log_relative_power, main = "", xlab = "log relative power")
+
+dat %>% 
+  dplyr::filter(subj <= 4) %>%
+  ggplot()+
+    geom_point(aes(x=trial, y=log_relative_power, color = laterality), size = 0.5, alpha=0.3)+
+    geom_line(aes(x=trial, y=obs, color = laterality), size=1)+
+    geom_hline(yintercept=0, linetype = "dashed")+
+    facet_grid(subj~task)
+
+dat = dat[,c("subj", "task", "trial", "laterality", "log_relative_power")]
+dat = dat[order(dat$subj,dat$task,dat$trial,dat$laterality),]
+
+readr::write_csv(dat,path='dat.csv')
+```
+
