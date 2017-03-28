@@ -503,9 +503,9 @@ noise_task_effect = 0.3
 # overall mean noise
 curve(dlnorm(x, log(noise_mean)-noise_sd/2, noise_sd), ylab = "density", xlab = "noise", main = "overall mean")
 # in ME task
-curve(dlnorm(x, log(noise_mean)-noise_sd/2 + noise_task_effect, noise_sd), ylab = "density", xlab = "noise", main = "+ task effect")
+curve(dlnorm(x, log(noise_mean)-noise_sd/2 + noise_task_effect/2, noise_sd), ylab = "density", xlab = "noise", main = "+ task effect")
 # in MI task
-curve(dlnorm(x, log(noise_mean)-noise_sd/2 - noise_task_effect, noise_sd), ylab = "density", xlab = "noise", main = "- task effect")
+curve(dlnorm(x, log(noise_mean)-noise_sd/2 - noise_task_effect/2, noise_sd), ylab = "density", xlab = "noise", main = "- task effect")
 
 noise_subj = dat %>%
   group_by(subj, e1) %>%
@@ -536,6 +536,6 @@ dat %>%
 dat = dat[,c("subj", "task", "trial", "laterality", "log_relative_power")]
 dat = dat[order(dat$subj,dat$task,dat$trial,dat$laterality),]
 
-readr::write_csv(dat,path='dat.csv')
+# readr::write_csv(dat,path='dat.csv')
 ```
 
