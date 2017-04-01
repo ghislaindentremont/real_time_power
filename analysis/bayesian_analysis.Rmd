@@ -1,7 +1,9 @@
 ---
 title: "Bayesian Analysis"
-output: html_notebook
 author: "Ghislain d'Entremont"
+output:
+  html_document: default
+  html_notebook: default
 ---
 
 # Load and Tidy Data
@@ -20,13 +22,16 @@ library(ezStan)
 
 ##### Read 
 
+We read in the data and look at it.
+
 ```{r}
-# Read in the data and look at it ----
 dat = readr::read_csv('dat.csv')
 View(dat)
 ```
 
 ##### Sort
+
+We sort the data by subject (id).
 
 ```{r}
 dat %>%
@@ -36,6 +41,8 @@ dat %>%
 ```
 
 ##### Within Contrasts
+
+We generate a within-subject contrast matrix. This matrix accounts for all the groupins of taks, laterality, and trial.
 
 ```{r}
 W = get_contrast_matrix(
@@ -47,7 +54,7 @@ View(W)
 
 ##### Between Contrasts
 
-I don't actually have any between-subject variables for the time being. 
+I don't actually have any between-subject variables for the time being. Therefore, this matrix is just a single columns of ones.
 
 ```{r}
 dat %>%
@@ -61,9 +68,9 @@ dat %>%
 View(B)
 ```
 
-# Sample
+# Sample Posterior
 
-## Run model and save
+### Run model and Save
 
 I ran the model on a 16 core vCPU through Google Cloud Compute Engine. 
 
@@ -112,7 +119,7 @@ data_for_stan = list(
 # save(post_c,file='post_c.rdata')
 ```
 
-## Scaled Output
+### Scaled Output
 
 ##### Scaled population coefficient means
 
@@ -139,7 +146,7 @@ stan_summary(
 
 ##### Log scaled noise coefficients
 
-The effect of task on noise was notable (greater noise in the ME task). The only other credible effect was that of trial:laterality. No such interaction effect was set, however. Therefore, this effect, however small, is spurious. 
+The effect of task on noise is notable (greater noise in the ME task). The only other credible effect is that of trial:laterality. This effect is spurious since no such effect was set in the population parameters, in the making of the data.
 
 ```{r}
 stan_summary(
@@ -173,11 +180,13 @@ stan_summary(
 )
 ```
 
-## Scaled condition estimates
+### Scaled condition estimates
 
 ##### Scaled population means
 
-The three-way interaction is very apparent (i.e. ME makes the increase of LI with trial greater than does MI). The two-interaction between trial and laterality is also rather clear since the effect of trial on laterality is so pronounce in the ME condition (i.e. it is generating the two-way interaction, despite an opposing interaction in the MI condition). All three main effects are also clear to see in timeseries plot below.
+The three-way interaction is very apparent (i.e. ME makes the increase of LI with trial greater than does MI). The two-interaction between trial and laterality is also rather clear since the effect of trial on laterality is so pronounced in the ME condition (i.e. it is generating the two-way interaction, despite an opposing interaction in the MI condition). All three main effects are also clear to see in timeseries plot below.  
+
+Of note is the fact that these condition-wise estimates are created by using the median of the intercept coefficient instead of it's full distribution. This removes the uncertainty associated with the intercept so that the credible intervals can be more appropriately interpreted as measures of uncertainty associated with the effects. Indeed, the effects are primarily of interest in this context.
 
 ```{r}
 cp = get_condition_post(
@@ -185,7 +194,7 @@ cp = get_condition_post(
 	, par = 'coefMpower'
 	, W = W
 	, B = B
-	, collapse_intercept_to_median = T  # I'm assuming that we do this to get rid of the uncertainty associated with the intercept so that we can focus more on the uncertainty associated with the effects.
+	, collapse_intercept_to_median = T 
 )
 
 cp %>%
@@ -210,7 +219,8 @@ cp %>%
 	facet_grid(
 		. ~ task 
 	)+
-  ylab("scaled")
+  xlab("total trial")+
+  ylab("scaled log relative power")
 ```
 
 ##### Log scaled noise coefficients
@@ -248,14 +258,15 @@ cps %>%
 	facet_grid(
 		. ~ task 
 	) + 
-  ylab("log of scaled")
+  xlab("total trial")+
+  ylab("log of scaled noise")
 ```
 
-## Unscaled output
+### Unscaled output
 
 ##### Population means
 
-The 95% CIs of the parameter estimates capture all the true population coefficients.
+The 95% CIs of the parameter estimates capture all the true population coefficients. This corroborates the findings from the 95% 'null hypothesis' approach to examining the effects we applied for the scaled coefficients.
 
 ```{r}
 coefMpower_scaled = stan_summary(
@@ -272,7 +283,7 @@ coefMpower
 
 ##### Population coefficient SDs
 
-Just overestimates trial coefficient variability and underestimates laterality coefficient variability. OTherwise, the 95% CIs appear to capture all the coefficient SDs (1-8). We will ignore the noise SDs for now. 
+These just overestimate the trial coefficient variability and underestimate the laterality coefficient variability. OTherwise, the 95% CIs appear to capture all the coefficient SDs (1-8). We will ignore the noise SDs.
 
 ```{r}
 sdsW_scaled = stan_summary(
@@ -285,9 +296,11 @@ row.names(sdsW) = c(rep(row.names(coefMpower),2))
 sdsW
 ```
 
-## Condition estimates
+### Condition estimates
 
 ##### Population means
+
+These unsclaled graphs are virtually identical to those that are scaled. The difference is in the scale of the y-axis. Indeed, the credible intervals appear to capture the condition-wise means that were set (indirectly) in the creation of the data. Of course, the three-way interaction is particularly apparent (mainly because its effect size is so large). 
 
 ```{r}
 SD = sd(dat$log_relative_power)
