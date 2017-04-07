@@ -8,9 +8,13 @@ output:
 
 # Study
 
-Healthy participants do motor execution (ME) and motor imagery (MI) EEG neurofeedback (NF) on seperate days. On each day, they do four 60 trial blocks of NF training. For the ME task, on each trial, after a brief fixation period, an arrow appears indicating which hand must be moved during the subsequent five second NF period. During the NF period, participants receive real-time, contineous feedback indicating the extent to which the brain activity over their primary motor cortex is lateralized. The more their activity is lateralized, the greater the length of the horizontal bar presented on screen. Their goal is simply to maximize the length of the bar in the direction of the hand that they are moving on a particular trial.
+Healthy participants do motor execution (ME) and motor imagery (MI) EEG neurofeedback (NF) on seperate days. On each day, they do four 60 trial blocks of NF training. For the ME task, on each trial, after a brief fixation period, an arrow appears indicating which hand must be moved during the subsequent five second NF period. For the MI task, the same procedure ensues with the exeption that participants imagine moving their hand, instead of actually moving it. In both tasks, during the NF period, participants receive real-time, continuous feedback indicating the extent to which the brain activity over their primary motor cortex is lateralized. The more their activity is lateralized, the greater the length of the horizontal bar presented on screen. Their goal is simply to maximize the length of the bar in the direction of the hand that they are moving on a particular trial.
 
-The data of interest are the average power (amplitude squared) values of the ipsilateral and contralateral primary motor cortex electrodes (C3 and C4 according to the 10-20 international system) for each trial (240 total) and for each task (ME and NF). We are interested in whether any of these three within subject predictors - laterality (contralateral, ipsilateral), trial (1 to 240), and task (ME, MI) - affect brain activity. If the neurofeedback training works across the board, we expect to see an interaction between laterality and trial such that the difference between contralateral and ipsilateral signals, with contralateral having lower power than ipsilateral, increases with trial. A three-way interaction, such that task modulates the increase in lateralization with trial, would not be surprising however. 
+The data of interest are the average power (amplitude squared) values of the ipsilateral and contralateral primary motor cortex electrodes (C3 and C4 according to the 10-20 international system) for each trial (240 total) and for each task (ME and MI). We are interested in whether any of these three within subject predictors - laterality (contralateral, ipsilateral), trial (1 to 240), and task (ME, MI) - affect brain activity. Specifically, we want to examine their effects on relative power, measured as the power of the signal during the NF period over the power of the signal during some baseline period that occured a few seconds prior to the NF period.  
+
+If the neurofeedback training works across the board, we expect to see an interaction between laterality and trial such that the difference between contralateral and ipsilateral signals, with contralateral having lower power than ipsilateral, increases with trial. A three-way interaction, such that task modulates the increase in lateralization with trial, would not be surprising either.  
+
+The directional main effect of laterality, with the contralateral signal having lower relative power than the ipsilateral signal, is referred to as the laterality index (LI). This effect is truly the primary outcome of the study.  
 
 We've collected a single pilot participant. Therefore, we will examine the participant's data and inspire ourselves from it to come up with plausible parameters with which to simulate data. The actual analyses will then be conducted on the simulated data, for which the population (vs. sample) parameters have been set. In this way, we will be able to determine the actual accuracy of the model, at least for one random sample. 
 
@@ -29,9 +33,9 @@ library(corrplot)
 
 ### Load and Tidy Data
 
-We load and concatnate the data files. We set my data types and factor levels. We convert the data to long format. 
+We load and concatnate the data files. We set data types and factor levels. We convert the data to long format. 
 
-```{r}
+```{r message=F}
 setwd("/Users/ghislaindentremont/Documents/Experiments/Neurofeedback/kevin_pilot")
 
 raw = map_df(
@@ -62,7 +66,7 @@ raw_long = raw %>%
 
 ##### Add adjusted time column 
 
-We confirm that the estimated times match the actual times to within 10 ms. We will be using the estimated trial times as they are consistent across trials. 
+We confirm that the estimated trial times, calculated based on sampling frequency, match the actual times (recorded time elapsed since the beginning of the trial) to within 10 ms. We will be using the estimated trial times as they are consistent across trials. 
 
 ```{r}
 raw_long = raw_long %>%
@@ -77,7 +81,7 @@ range(raw_long$time_est - raw_long$time_adj)
 
 ##### Filter data
 
-We apply a 6th order butterworth filter to the experiment data to isolate signals in the frequency band of interest: 13 to 30 Hz. The filter is applied forward and backwards to minimize phase shifts. Doing this 'sharp' filtering instead of frequency spectrum analyses allows us to keep the time domain for plots of continuous even-related activity. It is also appears to be common practice in the literature. After filtering, we create a new column for the power signal (the squared signal).  
+We apply a 6th order butterworth filter to the experiment data to isolate signals in the frequency band of interest: 13 to 30 Hz. The filter is applied forward and backwards to minimize phase shifts. Applying this 'sharp' filtering instead of frequency spectrum analyses allows us to keep the time domain for plots of continuous even-related activity. It also appears to be common practice in the literature. After filtering, we create a new column for the power signal (the squared signal).  
 
 ```{r}
 bu2 = butter(6, c(13,30)/(128/2), type = 'pass')
@@ -99,7 +103,7 @@ filtered_zero = filtered_zero %>%
 
 ##### Create laterality variable
 
-To examine the outcome of interest (laterality), we create a new variable.
+To later examine the outcome of interest (laterality index), we create a new variable which indcates whether signal points are generated contralateral or ipsilateral to the cued location (the location in which participants have to either move or imagine moving their hands).
 
 ```{r}
 filtered_zero = filtered_zero %>%
@@ -114,7 +118,7 @@ filtered_zero = filtered_zero %>%
 
 ##### Get baseline
 
-The baselines are based on an average over both channels of interest (C3 and C4) during fixation period in each trial. We expect baseline values for both channels to be very similar.
+The baselines are based on an average over both channels of interest (C3 and C4) during the fixation period in each trial. We expect baseline values for both channels to be very similar.
 
 ```{r}
 baselines = filtered_zero %>%
@@ -125,7 +129,7 @@ baselines = filtered_zero %>%
 
 ##### Get relative power
 
-We get an estimate of relative power for each time point, for each trial, for each laterality. We define relative power as power over the baseline for the trial of interest. 
+We get an estimate of relative power for each time point, for each trial, for each laterality. We define relative power as power over the baseline of the trial for which relative power is being calculated. 
 
 ```{r}
 relative_power = filtered_zero %>%
@@ -148,40 +152,40 @@ mean_relative_power_by_NF_trial = relative_power %>%
   mutate(log_mean_relative_power = log(mean_relative_power))
 ```
 
-# Establishing Generative Model for Data
+# Establishing a Generative Model 
 
-For the purpose of creating a statistical  model for the data we must infer an appropriate generative model for the data. Relative power is bounded by zero and positive infinity. Therefore, we first examine the likelihood of the data coming from a lognormal distribution.
+For the purpose of creating a statistical  model for the data we must infer an appropriate generative model for the data. Relative power is bounded by zero and positive infinity. Therefore, we first examine the likelihood of the data having come from a lognormal distribution.
 
 ### Lognormal
 
 ##### Plotting raw data
 
-First, we plot the distribution of trial-wise relative power values, for each laterality (they should be approximately the same), and each block condition. There does appear to be some difference in the shape of the distributions between the block conditions, but no noticeable difference between distributions for contralateral and ipsilateral conditions. The log-transformed data may very well come from a normal population.
+First, we plot the distribution of trial-wise relative power values, for each laterality (they should be approximately the same), and each task. There does appear to be some difference in the shape of the distributions between tasks, but no noticeable difference between distributions for contralateral and ipsilateral conditions. The log-transformed data may very well come from a normal population.
 
 ```{r}
 mean_relative_power_by_NF_trial %>%
   ggplot()+
     geom_histogram(aes(x=mean_relative_power, y=..density..), bins = 50)+
     facet_grid(laterality~block_cond)+
-    ggtitle("Non-transformed Relative Power")+
-    xlab("Relative Power (Power/Baseline)")+
-    ylab("Density")
+    ggtitle("non-transformed relative power")+
+    xlab("relative power")+
+    ylab("density")
 
 mean_relative_power_by_NF_trial %>%
   ggplot(aes(x=log_mean_relative_power))+
     geom_histogram(aes(y=..density..), bins = 50)+
     facet_grid(laterality~block_cond)+
-    ggtitle("Log-transformed Relative Power")+
-    xlab("Log Relative Power Log(Power/Baseline)")+
-    ylab("Density")
+    ggtitle("log-transformed relative power")+
+    xlab("log relative power")+
+    ylab("density")
 
 mean_relative_power_by_NF_trial %>%
   ggplot(aes(x=log_mean_relative_power))+
     geom_histogram(aes(y=..density..), bins = 50)+
     facet_grid(.~block_cond)+
-    ggtitle("Combined Data: Log-transformed Relative Power")+
-    xlab("Log Relative Power Log(Power/Baseline)")+
-    ylab("Density")
+    ggtitle("combined data: log-transformed relative power")+
+    xlab("log relative power")+
+    ylab("density")
 ```
 
 ##### Simulating samples from normal distribution
@@ -204,9 +208,9 @@ mean_relative_power_by_NF_trial %>%
   ggplot()+
     geom_density(aes(x=log_mean_relative_power, y=..density.., color=block_cond), size=1)+
     geom_density(data=y_tibb, aes(x=value, y=..density.., group=simulation), size=0.1, position="identity")+
-    ggtitle("MI AND ME")+
-    xlab("Log Relative Power Log(Power/Baseline)")+
-    ylab("Density")
+    ggtitle("MI and ME")+
+    xlab("log relative power")+
+    ylab("density")
 
 
 
@@ -234,8 +238,8 @@ mean_relative_power_by_NF_trial %>%
     geom_density(aes(x=log_mean_relative_power, y=..density..), color="red", size=1)+
     geom_density(data=y_MI_tibb, aes(x=value, y=..density.., group=simulation), size=0.1, position="identity")+
     ggtitle("MI")+
-    xlab("Log Relative Power Log(Power/Baseline)")+
-    ylab("Density")
+    xlab("log relative power")+
+    ylab("density")
 
  
 
@@ -256,13 +260,15 @@ mean_relative_power_by_NF_trial %>%
     geom_density(aes(x=log_mean_relative_power, y=..density..), color="red", size=1)+
     geom_density(data=y_ME_tibb, aes(x=value, y=..density.., group=simulation), size=0.1, position="identity")+
     ggtitle("ME")+
-    xlab("Log Relative Power Log(Power/Baseline)")+
-    ylab("Density")
+    xlab("log relative power")+
+    ylab("density")
 ```
 
 ##### Average ERD timecourse
 
-We generate am average ERD timecourse for the pilot participant. This is done by (1) averaging over trials, (2) smoothing (sma), and (3) taking the log of the average relative power. We only visualize the first 30 trials of each block because of a timing issue present in the other 30 trials in each block. The graphs display event-related desynchronization (reduction in relative power) in the ME condition, but not in the MI condition. 
+We generate an average event-related desynchronization (ERD) timecourse for the pilot participant. ERD is simply a reduction in relative power. The timecourse is obtained by (1) averaging over trials, (2) smoothing (sma), and (3) taking the log of the average relative power. We only visualize the first 30 trials of each block because of a timing issue present in the other 30 trials in each block for the pilot participant. The graphs display ERD in the ME condition (waveform is below the horizontal dotted line), but not in the MI condition (waveform is roughly alligned with the horizontal dotted line).   
+
+These waveforms appear to be a common outcome in the MI/ME NF litterature. Therefore, the generation of these ERD timecourses with the use of a natural log conversion is a nice, albeit crude, confirmation of what was expected a priori and of the generalizability of the log conversion result to alternative methods used in the field (e.g. taking the percent difference of the average relative power). Moreover, I wanted to plot this graph because it looks nice to me. 
 
 ```{r}
 relative_power %>%
@@ -277,9 +283,9 @@ relative_power %>%
     geom_line(aes(x=time_est_ERD, y=log_avg_relative_power, color = laterality), alpha = 0.2)+
     geom_line(aes(x=time_est_ERD, y=log_sma_relative_power, color = laterality))+
     facet_grid(.~block_cond)+
-    xlab("Trial Time (s)")+
-    ylab("Log of Average Relative Power")+
-    ggtitle("First 30 Trials") +
+    xlab("trial time (s)")+
+    ylab("log of average relative power")+
+    ggtitle("first 30 trials") +
     geom_vline(xintercept = 2, linetype = "dashed")+
     geom_vline(xintercept = 2 + 1.25, linetype = "dashed")+
     geom_hline(yintercept=0, linetype = "dashed")+
@@ -319,7 +325,7 @@ mean_relative_power_by_NF_trial %>%
     xlab("total trial")
 ```
 
-The final plot offers a nice visual of the effect task and an indication that the pilot participant expresses no interaction effects among the conditions. 
+The final plot offers a nice visual of the effect of task and an indication that the pilot participant expresses no interaction effects among the conditions. 
 
 ```{r}
 mean_relative_power_by_NF_trial$grouping = c(rep(c("MI contra", "MI ipsi"),240),  rep(c("ME contra", "ME ipsi"),240))
@@ -350,18 +356,19 @@ mean_relative_power_by_NF_trial %>%
     geom_point()+
     facet_grid(block_cond ~ laterality)+
     geom_hline(yintercept=0, linetype = "dashed")+
-    ylab("log of mean relative power")
+    ylab("log of mean relative power")+
+    xlab("total trial")
 ```
 
 ### Generate data
 
-We have three within subject factors: (1) task, (2) trial, (3) laterality. The generative model is structured as follows. The log relative power for a given participant for a given trial is sampled from a normal distribution with a mean 'power', and a standard deviation 'noise'. 'Power' is specified by the full model: power = B0 + B1(task) + B2(age) + B3(trial) + B4(task x trial) + B5(task x laterality) + B6(trial x laterality) + B7(task x laterality x trial), where the beta coefficients are sampled from a multivariate normal distribution, with specified mean and standard deviation for each coefficient, and a covariance matrix to account for the correlation among these coefficients. 'Noise', which varies among participants and conditions, is sampled from a lognormal distribution with a mean specified by the full model, and a set standard deviation. In theory, it would be possible to introduce correlations among the Beta coefficients of the 'Noise' and 'Power' outcomes. However, for simplicity, we don't do this.  
+We have three within subject factors: (1) task, (2) trial, (3) laterality. The generative model is structured as follows. The log relative power for a given participant for a given trial is sampled from a normal distribution with a mean 'power', and a standard deviation 'noise'. 'Power' is specified by the full model: power = B0 + B1(task) + B2(age) + B3(trial) + B4(task x trial) + B5(task x laterality) + B6(trial x laterality) + B7(task x laterality x trial), where the beta coefficients are sampled from a multivariate normal distribution, with a specified mean and standard deviation for each coefficient, and a covariance matrix to account for the correlation among these coefficients. 'Noise', which varies among participants and conditions, is sampled from a lognormal distribution with a mean specified by the full model, and a set standard deviation. In theory, it would be possible to introduce correlations among the Beta coefficients of the 'Noise' and 'Power' outcomes. For simplicity, we don't do this. However, the Bayesian model that is presented later would account for such relationships.  
 
-Basically, data are sampled from a generative model in which the overall average log relative power and the effect of any particular condition or trial on log relative power are allowed to vary among participants. The variability of the log relative power in a particular condition (what we've call 'noise') is itself allowed to vary among participants, and among conditions.  
+Basically, data are sampled from a generative model in which the overall average log relative power and the effect of any particular condition or of trial on log relative power are allowed to vary among participants. The variability of the log relative power in a particular condition (what we've call 'noise') is itself allowed to vary among participants, and among conditions.  
 
 ##### 'Power' coefficients
 
-Main effects, two-way interactions, and a three-way interaction are specficied. Their effect sizes are either 0.5, 1, and 5. Many of these effects were not seen in the pilot participant. Instead these effects that are broadly what we hypothesize finding with a full dataset, with some effects (like the three-way interaction) being a little extreme in it's variabilty (cohen's d of 5). The estimates of noise, however, were mainly inspired by the pilot data.  
+Main effects, two-way interactions, and a three-way interaction are specficied. Their effect sizes are either 0.5, 1, or 5. Many of these effects were not seen in the pilot participant. Instead these are effects that are broadly what we hypothesize finding with a full dataset, with some effects (like the three-way interaction) being a little extreme in it's variabilty (cohen's d of 5). The estimates of noise, however, were mainly inspired from the pilot data.  
 
 ```{r}
 set.seed(1)
@@ -512,11 +519,11 @@ subjCoefs = MASS::mvrnorm(N
 
 ##### Examine sample correlations
 
-We plot sample correlations to establish the extent to which the random population draw was representative (i.e. no substantial outliers; e.g. 0.4-0.5).
+We plot sample correlations to establish the extent to which the random sample was representative of the population from which it was drawn.
 
 ```{r}
 C = cor(subjCoefs)
-corrplot(C, main = "sample correlations")
+corrplot(C)
 ```
 
 ##### View data and contrasts
@@ -578,7 +585,7 @@ noise_subj = dat %>%
   group_by(subj, e1) %>%
   summarize(noise_subj = rlnorm(1, (log(noise_mean) - noise_sd/2) - e1*noise_task_effect, noise_sd))
 
-hist(noise_subj$noise_subj, xlab = "sample noise", main = "")
+hist(noise_subj$noise_subj, xlab = "sample noise", ylab = "frequency", main = "")
 ```
 
 ##### Sample each observation with noise
@@ -594,7 +601,7 @@ dat$log_relative_power = rnorm(nrow(dat), dat$obs, dat$noise_subj)
 
 ##### View sample
 
-We generate plots to visualize the sample at the participant level. The sample data look largely similar to the pilot data in their central tendency and disersion. Of course, we've enforced certain effects (especially the three-way interaction) that were not present in the pilot data and therefore those are noticeably different.
+We generate plots to visualize the sample at the participant level. The sample data look largely similar to the pilot data with respect to their central tendency and dispersion. Of course, we've enforced certain effects (especially the three-way interaction) that were not present in the pilot data. Therefore those trends are noticeably different.
 
 ```{r}
 names(dat)[3:5] = c("task", "trial", "laterality")
@@ -602,7 +609,7 @@ dat$task = factor(dat$task, levels = c(-.5, .5), labels = c("ME", "MI"))
 dat$trial = dat$trial 
 dat$laterality = factor(dat$laterality, levels = c(-.5, .5), labels = c("contra", "ipsi"))
 
-hist(dat$log_relative_power, main = "", xlab = "log relative power")
+hist(dat$log_relative_power, main = "", xlab = "log relative power", ylab = "frequency")
 
 dat %>% 
   dplyr::filter(subj <= 4) %>%

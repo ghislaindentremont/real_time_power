@@ -11,13 +11,13 @@ output:
 ##### Load
 
 ```{r}
-# load packages we'll use ----
 library(tidyverse)
 library(rstan)
 rstan_options(auto_write = TRUE)
 
 library(devtools)
 library(ezStan)
+library(ez)
 ```
 
 ##### Read 
@@ -26,7 +26,7 @@ We read in the data and look at it.
 
 ```{r}
 dat = readr::read_csv('dat.csv')
-View(dat)
+# View(dat)
 ```
 
 ##### Sort
@@ -40,21 +40,21 @@ dat %>%
 	) -> dat
 ```
 
-##### Within Contrasts
+##### Within contrasts
 
-We generate a within-subject contrast matrix. This matrix accounts for all the groupins of taks, laterality, and trial.
+We generate a within-subject contrast matrix. This matrix accounts for all the groupins of task, laterality, and trial.
 
 ```{r}
 W = get_contrast_matrix(
 	data = dat
 	, formula = ~  task * trial * laterality 
 )
-View(W)
+# View(W)
 ```
 
-##### Between Contrasts
+##### Between contrasts
 
-I don't actually have any between-subject variables for the time being. Therefore, this matrix is just a single columns of ones.
+I don't actually have any between-subject variables. Therefore, this matrix is just a single column of ones.
 
 ```{r}
 dat %>%
@@ -65,17 +65,16 @@ dat %>%
 	get_contrast_matrix(
 		formula = ~ 1
 	) -> B
-View(B)
+# View(B)
 ```
 
 # Sample Posterior
 
-### Run model and Save
+### Run and Save Model
 
 I ran the model on a 16 core vCPU through Google Cloud Compute Engine. 
 
 ```{r}
-#package in list for Stan
 data_for_stan = list(
 	#nTrials: num trials
 	nTrials = nrow(dat)
@@ -109,8 +108,8 @@ data_for_stan = list(
 # 	file = 'bayesian_analysis.stan'
 # 	, data = data_for_stan
 # 	, seed = 1
-# 	, chains = 4
-# 	, cores = 4 #set this to # of physical cores on your system
+# 	, chains = 16
+# 	, cores = 16 #set this to # of physical cores on your system
 # 	, iter = 2e3
 # 	, init = 0
 # 	, pars = c('normal01','cors_helper') #don't bother saving these variables
@@ -119,24 +118,27 @@ data_for_stan = list(
 # save(post_c,file='post_c.rdata')
 ```
 
-### Scaled Output
+### Load Model
 
-##### Scaled population coefficient means
-
-The posterior estimates are all scaled. We do see that all parameters have an Rhat of 1, and have an effective N above 1000. The exception is the intercept term of the coefficient means (i.e. the overall mean), with a little over 600 effective samples.  
-
-It took approximately 20 hours to run 2000 iterations of the model on 16 chains (~20 hours per chain).  
-
-We can interpret the scaled effects to the extent that they are credibly non-zero. We see effects of task (negative), trial (negative), laterality (negative), task:laterality (negative), and the three-way interaction. Each are in line with the population parameters that went into generating the current data.
-
-NOTE: the task and laterality factors are of opposite sign of how they were defined in 'create_data' because of the way the W contrast matrix is generated. The three-way interaction shown below is still has the proper sign because the flipped signs of task and laterality cancel each other in the making of the three-way interaction contrast. 
+In total, it took approximately 20 hours to run the model (all chains, in parallel, took roughly the same amount of time). For each of 16 chains, 2000 iterations were run, of which half were warm-up samples. Therefore, there were 16000 usable samples overall.
 
 ```{r}
 load('post_c.rdata')
 summary(rowSums(get_elapsed_time(post_c)/60/60))
+```
 
-# this is still scaled
-stan_summary(
+### Scaled Output
+
+##### Scaled 'power' coefficients
+
+The posterior estimates are all scaled. We do see that all parameters have an Rhat of 1, and have an effective N above 1000. The exception is the intercept term of the 'power' coefficients (i.e. the overall mean), which has a little over 600 effective samples.  
+
+We can interpret the scaled effects to the extent that they are credibly non-zero. We see effects of task (negative), trial (negative), laterality (negative), task:laterality (negative), and the three-way interaction. Each are in line with the population parameters that went into generating the current data.
+
+NOTE: the task and laterality factors are of opposite sign of how they were defined in 'create_data' because of the way the W contrast matrix was generated. The three-way interaction shown below still has the proper sign because the flipped signs of task and laterality cancel each other in the making of the three-way interaction contrast. 
+
+```{r}
+coefMpower_scaled = stan_summary(
 	from_stan = post_c
 	, par = 'coefMpower'
 	, W = W
@@ -144,12 +146,12 @@ stan_summary(
 )
 ```
 
-##### Log scaled noise coefficients
+##### Log scaled 'noise' coefficients
 
-The effect of task on noise is notable (greater noise in the ME task). The only other credible effect is that of trial:laterality. This effect is spurious since no such effect was set in the population parameters, in the making of the data.
+The task effect is notable (greater noise in the ME task). The only other credible effect is that of trial:laterality. This effect is spurious since no such effect was set in the population parameters in making the data.
 
 ```{r}
-stan_summary(
+sdsW_scaled = stan_summary(
 	from_stan = post_c
 	, par = 'coefSpower'
 	, W = W
@@ -157,9 +159,9 @@ stan_summary(
 )
 ```
 
-##### Scaled population coefficient SDs
+##### Scaled coefficient SDs
 
-The scaled versions of these SDs are not particularly meaningful. 
+These are the scaled estimates of the coefficient standard deviations for 'noise' and 'power' coefficients. The scaled versions of these standard deviations are not particularly meaningful. 
 
 ```{r}
 stan_summary(
@@ -170,7 +172,7 @@ stan_summary(
 
 ##### Correlations
 
-Of the 16 choose 2 = 120 possible correlations, only three were set to be non-zero: the correlation of the intercept with each main effect. The first three entries of the correlation output indicate that two of these three correlations were detected by the model using 95% cut-offs. The actual population correlation magnitudes were easily included in all three credible intervals. Of note is that there was only one spurious correlation (4~9).
+Of the 16 choose 2 = 120 possible correlations, only three were set to be non-zero in the population: the correlation of the 'power' intercept with each main effect. The first three entries of the correlation output indicate that two of these three correlations were detected by the model, using 95% cut-offs. The actual population correlation magnitudes were easily included in all three credible intervals. Of note is that there was one spurious correlation (4~9).
 
 ```{r}
 stan_summary(
@@ -180,13 +182,15 @@ stan_summary(
 )
 ```
 
-### Scaled condition estimates
+### Scaled Condition Estimates
 
-##### Scaled population means
+##### Scaled 'power' 
 
-The three-way interaction is very apparent (i.e. ME makes the increase of LI with trial greater than does MI). The two-interaction between trial and laterality is also rather clear since the effect of trial on laterality is so pronounced in the ME condition (i.e. it is generating the two-way interaction, despite an opposing interaction in the MI condition). All three main effects are also clear to see in timeseries plot below.  
+The three-way interaction is very apparent (i.e. ME makes the increase of LI with trial greater than does MI). The two-interaction between trial and laterality is also rather clear since the effect of trial on laterality is pronounced in the ME condition (i.e. it is generating the two-way interaction, despite an opposing interaction in the MI condition). All three main effects are also obvious from the timeseries plot below.  
 
-Of note is the fact that these condition-wise estimates are created by using the median of the intercept coefficient instead of it's full distribution. This removes the uncertainty associated with the intercept so that the credible intervals can be more appropriately interpreted as measures of uncertainty associated with the effects. Indeed, the effects are primarily of interest in this context.
+These condition-wise estimates are created by using the median of the postetrior distribution of the intercept coefficient instead of the full distribution of the intercept. This removes the uncertainty associated with the intercept so that the credible intervals can be more appropriately interpreted as measures of uncertainty associated with the effects. The effects are primarily of interest in this context.  
+
+The dashed and dotted lines represent 50 and 95% credible intervals, respectively.
 
 ```{r}
 cp = get_condition_post(
@@ -220,12 +224,12 @@ cp %>%
 		. ~ task 
 	)+
   xlab("total trial")+
-  ylab("scaled log relative power")
+  ylab("scaled population mean (log relative power)")
 ```
 
-##### Log scaled noise coefficients
+##### Log scaled 'noise' 
 
-The plot reveals rather clearly a main effect of task on noise such that data collected from MI conditions are noisier than those collected from MI conditions (i.e. the log scaled noise is less negative). We see how the spurious trial:laterality interaction came out: LI flips as a function of trials. 
+The plot reveals rather clearly a main effect of task on noise such that data collected from MI conditions are noisier than those collected from MI conditions (i.e. the log scaled noise is less negative). We see how the spurious trial:laterality interaction came out: the difference in the noise over each laterality flips as a function of trial. 
 
 ```{r}
 cps = get_condition_post(
@@ -233,7 +237,7 @@ cps = get_condition_post(
 	, par = 'coefSpower'
 	, W = W
 	, B = B
-	, collapse_intercept_to_median = T  # I'm assuming that we do this to get rid of the uncertainty associated with the intercept so that we can focus more on the uncertainty associated with the effects.
+	, collapse_intercept_to_median = T  
 )
 
 cps %>%
@@ -259,46 +263,34 @@ cps %>%
 		. ~ task 
 	) + 
   xlab("total trial")+
-  ylab("log of scaled noise")
+  ylab("log of scaled population noise")
 ```
 
 ### Unscaled output
 
-##### Population means
+##### 'Power' coefficients
 
-The 95% CIs of the parameter estimates capture all the true population coefficients. This corroborates the findings from the 95% 'null hypothesis' approach to examining the effects we applied for the scaled coefficients.
+The 95% credible intervals of the parameter estimates capture all the true population coefficients. This corroborates the findings from the 95% 'null hypothesis' approach to examining the effects we applied for the scaled coefficients.
 
 ```{r}
-coefMpower_scaled = stan_summary(
-	from_stan = post_c
-	, par = 'coefMpower'
-	, W = W
-	, B = B
-)
-
 coefMpower = coefMpower_scaled[,1:3] * sd(dat$log_relative_power)
 coefMpower[1,] = coefMpower[1,] + mean(dat$log_relative_power) 
 coefMpower
 ```
 
-##### Population coefficient SDs
+##### Coefficient SDs
 
-These just overestimate the trial coefficient variability and underestimate the laterality coefficient variability. OTherwise, the 95% CIs appear to capture all the coefficient SDs (1-8). We will ignore the noise SDs.
+These just overestimate the trial coefficient variability and underestimate the laterality coefficient variability. OTherwise, the 95% credible intervals appear to capture all the coefficient SDs (1-8). We will ignore the noise SDs.
 
 ```{r}
-sdsW_scaled = stan_summary(
-	from_stan = post_c
-	, par = 'sdsW'
-)
-
 sdsW = sdsW_scaled[,1:3] * sd(dat$log_relative_power)
-row.names(sdsW) = c(rep(row.names(coefMpower),2))
+# row.names(sdsW) = c(rep(row.names(coefMpower),1))
 sdsW
 ```
 
-### Condition estimates
+### Condition Estimates
 
-##### Population means
+##### 'Power' 
 
 These unsclaled graphs are virtually identical to those that are scaled. The difference is in the scale of the y-axis. Indeed, the credible intervals appear to capture the condition-wise means that were set (indirectly) in the creation of the data. Of course, the three-way interaction is particularly apparent (mainly because its effect size is so large). 
 
@@ -328,12 +320,12 @@ cp %>%
 	facet_grid(
 		. ~ task
 	)+
-  ylab("population mean log relative power")
+  ylab("population mean (log relative power)")
 ```
 
-##### Noise values
+##### 'Noise'
 
-The model appears to caputre the set population noise estimates extremely well (look at lognormal graphs from 'create_data').
+The model appears to caputre the population noise estimates extremely well (look at lognormal graphs from 'create_data').
 
 ```{r}
 cps %>%
@@ -360,4 +352,156 @@ cps %>%
 	) + 
   ylab("population noise (log relative power)")
 ```
+
+# Standard Statistics
+
+Based on my knowledge of the neurofeedback litterature, multiple ANOVAs and/or pairwise comparisons are commonly used to analyse these data sets. I will do an analysis that I believe to be reasonably representative of what is done in the field.
+
+### rANOVA
+
+##### Get block means
+
+We create a new column that categorizes the data into four blocks. 
+
+```{r}
+for_aov2 = dat %>% 
+  mutate(
+    block1 = ifelse(trial <= 60, 1, 0)
+  ) %>%
+  mutate(
+    block2 = ifelse(trial <= 120 & trial > 60, 2, 0)
+  ) %>%
+  mutate(
+    block3 = ifelse(trial <= 180 & trial > 120, 3, 0)
+  ) %>%
+  mutate(
+    block4 = ifelse(trial <= 240 & trial > 180, 4, 0)
+  ) %>%
+  mutate(block = block1 + block2 + block3 + block4)
+```
+
+We average power over each block and get variances for each condition.
+
+```{r}
+for_aov = for_aov2 %>% 
+  group_by(subj, task, laterality, block) %>%
+  summarize(mean_log_relative_power = mean(log_relative_power))
+
+varz = for_aov %>%
+  group_by(task, laterality, block) %>%
+  summarize(varz = var(mean_log_relative_power)) 
+
+hist(varz$varz, main = "", xlab = "condition variances", ylab = "frequency")
+points(varz$varz, rep(0, length(varz$varz)))
+  
+MSE = mean(varz$varz)
+```
+
+##### Run ezANOVA
+
+The ezANOVA indicates that all true population effecs are detected, however an additional, spurious two-way interaction between task and laterality is detected. 
+
+```{r}
+ezANOVA(
+  as.data.frame(for_aov)
+  , mean_log_relative_power
+  , subj
+  , .(task, laterality, block)
+  , return_aov = T
+  , detailed = T
+)
+```
+
+### Parameter Estimates
+
+We want to see whether the parameter estimates (95% CIs) capture the true population parameters.
+
+##### Plot conditions
+
+The plot does largely capture the trends set in the population during the data creation phase.
+
+```{r}
+ezPlot(
+  as.data.frame(for_aov)
+  , mean_log_relative_power
+  , subj
+  , .(task, laterality, block)
+  , x = .(block)
+  , row = .(task)
+  , split = .(laterality)
+  , bar_size = sqrt(MSE/40) * 2  # I get ~95% CIs, using the MSE associated with the main effect of block 
+  , bar_width = .1
+  # , do_bars = F
+)
+```
+
+##### Interaction effect
+
+We start with the two-way interaction between task and laterality. We get an estimate for each block then average those. This is the false positive. The model is not even close to estimating this effect as being close to zero (the population value). NOTE: the sign might be flipped but I don't care.
+
+```{r}
+lat_diffs = aggregate(mean_log_relative_power ~ task + block + subj, data=for_aov, FUN=diff)
+lat_task_diffs = aggregate(mean_log_relative_power ~ block + subj, data=lat_diffs, FUN=diff)
+
+two_ways_means = aggregate(mean_log_relative_power ~ block, data=lat_task_diffs, FUN=mean)
+two_way_mean = mean(two_ways_means$mean_log_relative_power)
+
+two_ways_vars = aggregate(mean_log_relative_power ~ block, data=lat_task_diffs, FUN=var)
+two_way_var = mean(two_ways_vars$mean_log_relative_power)
+
+plot(two_way_mean, ylab = "log relative power", xlab = "", xaxt = "n", ylim = c(-0.4, .1))
+abline(h=0, lty = "dotted")
+axis(1, 1, tick = F, labels = "task by laterality interaction")
+segments(1, two_way_mean - 2*sqrt(two_way_var/40), 1, two_way_mean + 2*sqrt(two_way_var/40))
+```
+
+##### Laterality main effect
+
+We get parameter estimates for the categorical main effects. The dotted red bar represents the true population mean. Therefore the traditional parameter estimate misses the effect despite correctly identifying that the effect is non-zero.
+
+```{r}
+lat_means = aggregate(mean_log_relative_power ~ laterality + subj, data=for_aov, FUN=mean)
+lat_effects = aggregate(mean_log_relative_power ~ subj, data=lat_means, FUN=diff)
+lat_effect = mean(lat_effects$mean_log_relative_power)
+lat_var = var(lat_effects$mean_log_relative_power)
+
+plot(lat_effect, ylab = "log relative power", xlab = "", xaxt = "n", ylim = c(-0.1, .4))
+abline(h=0, lty = "dotted")
+abline(h=.1, lty = "dotted", col = "red")
+axis(1, 1, tick = F, labels = "laterality effect")
+segments(1, lat_effect - 2*sqrt(lat_var/40), 1, lat_effect + 2*sqrt(lat_var/40))
+```
+
+##### Task main effect
+
+The traditional parameter estimate does capture the true population effect of task.
+
+```{r}
+task_means = aggregate(mean_log_relative_power ~ task + subj, data=for_aov, FUN=mean)
+task_effects = aggregate(mean_log_relative_power ~ subj, data=task_means, FUN=diff)
+task_effect = mean(task_effects$mean_log_relative_power)
+task_var = var(task_effects$mean_log_relative_power)
+
+plot(task_effect, ylab = "log relative power", xlab = "", xaxt = "n", ylim = c(-0.1, .4))
+abline(h=0, lty = "dotted")
+abline(h=.2, lty = "dotted", col = "red")
+axis(1, 1, tick = F, labels = "task effect")
+segments(1, task_effect - 2*sqrt(task_var/40), 1, task_effect + 2*sqrt(task_var/40))
+```
+
+### Shortcomings of Standard Analysis
+
+As indicated in the previous demonstrations, estimates of the 'power' coefficients for all experimental effects were less precise than those calculated using the Bayesian analysis. Namely, a spurious result was detected by the rANOVA for the two-way interaction between task and laterality. Also, the frequentist parameter estimate did not capture the true main effect of laterality. We did not estimate any effects which included the trial factor since this factor was non-existant in the frequentist analysis. Instead, we calculated mean log relative power for each block and used that as a 'time' factor as that seems to be what is most common in the field. I'm assuming such a practice is common because it allows for the use of an ANOVA (as opposed to mulitple linear models or a mixed effect model) and facilitates interpretation.
+
+Most researchers using rANOVA and subsequent traditional post-hoc tests or parameter estimates don't get estimates for the standard deviations of the parameters of interest. They also don't get estimates (or account) for the noise parameters I've included in the model.  
+
+I haven't come across many studies examining correlations among the intercepts and condition effects (at least not in a comprehensive way). Further, as implied in the previous paragraph, researchers in the field don't estimate the correlations among noise coefficients (or those coefficients and any other coefficients for that matter).
+
+# Shortcomings of Simulation
+
+We did all analyses on a single, putatively representative, sample because the Bayesian analysis takes nearly an entire day to run a Goodle Cloud Computer Engine. Ideally, the analyses presented herein would be conducted on multiple simulations to evalute the performance of these different analysis procedures in the long run (while accounting for random sampling).  
+
+We did all analyses on a sample from a single generative model. Ideally, we will vary the the population parameters of the generative model, covering a range of plausible values, to examine the performance of the different analysis approaches with respect to detecting a variety of effects and effect sizes.  
+
+The Bayesian analysis model assumed that the relationship between the outcome and trial (time) was linear. The generative model was created to meet this assumption. However, it is very plausible that in reality that training-related changes in brain activity follow non-linear pattern. Ideally, the Bayesian model would be constructed to account for arbitrary relationships between time and brain activity. 
 
