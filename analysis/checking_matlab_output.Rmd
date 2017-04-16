@@ -1,7 +1,6 @@
 ---
 title: "Analysis of NF Data"
 author: Ghislain d'Entremont
-date: March 16, 2017
 output: html_document
 ---
 
@@ -25,7 +24,7 @@ setwd("/Volumes/LaCie/Experiments/NF_data/Piloting")
 
 raw = map_df(
   .x = list.files(
-    pattern = "p101_raw"
+    pattern = "p99_raw"
   )
   , .f = function(file) {
     read_csv(
@@ -63,7 +62,7 @@ setwd("/Volumes/LaCie/Experiments/NF_data/Piloting")
 
 pwr = map_df(
   .x = list.files(
-    pattern = "p101_pwr"
+    pattern = "p99_pwr"
   )
   , .f = function(file) {
     read_csv(
@@ -116,7 +115,7 @@ raw_long %>%
 range(raw_long$time_est - raw_long$time_adj)
 ```
 
-##### We check for any time lags or other timing issues. Interstingly there appears to be a consistent lag at the end of blocks, but only for the cue trial stage. Additionally, there are a few scattered timing mishaps for the ME fixation time stage. 
+##### We check for any time lags or other timing issues.
 
 ```{r}
 raw_long %>%
@@ -161,79 +160,86 @@ raw_long %>%
 ##### We look to create power values from raw data. We will attempt this without the use of a 'data buffer'. For each trial stage we will (1) butterworth (2) notch and (3) take the power values.
 
 ```{r}
-bu = butter(2, c(4,60)/(128/2), type = 'pass')
-no = butter(2, c(59,61)/(128/2), type = 'stop')
+bu = butter(6, c(13,30)/(128/2), type = 'pass')
+# no = butter(2, c(59,61)/(128/2), type = 'stop')
 
 raw_long_fil = raw_long %>%
   group_by(block_cond, channel) %>%
-  mutate(butter_filtered = signal::filter(bu, signal)) %>%
-  mutate(and_notch_filtered = signal::filter(no, butter_filtered))
+  mutate(butter_filtered = signal::filtfilt(bu, signal)) %>%
+  mutate(signal_squared = butter_filtered^2)
+   # %>% mutate(and_notch_filtered = signal::filtfilt(no, butter_filtered))
 
 raw_long_fil %>%
   dplyr::filter(block == 2, trial < 10) %>%
-  ggplot(aes(y = and_notch_filtered, x = time_adj))+
+  ggplot(aes(y = butter_filtered, x = time_adj))+
     geom_line()+
     facet_grid(channel ~block_cond)+
     ggtitle("Partial Filtered Experiment Data")+
     xlab("Time (s)")+
-    ylab("Signal (uV?)")
+    ylab("Signal (uV)")
 
 raw_long_pwr = raw_long_fil %>%
   dplyr::filter(channel == "Ch8" || channel == "Ch12") %>%
   group_by(block_cond, block, trial, trial_stage, cue_loc, channel) %>%
-  summarize(power = mean(welchPSD(ts(and_notch_filtered), seglength = 128)[["power"]][14:31]))
+  summarize(power = mean(signal_squared))
 
+# raw_long_pwr = raw_long_fil %>%
+#   dplyr::filter(channel == "Ch8" || channel == "Ch12") %>%
+#   group_by(block_cond, block, trial, trial_stage, cue_loc, channel) %>%
+#   summarize(power = mean(welchPSD(ts(and_notch_filtered), seglength = 128)[["power"]][14:31]))
 ```
 
-##### We confirm that welchPSD is doing what we want it to by visualizing the PSD of some decently sized middle chunk of the data for each channel of interest, using empirical power and welch's power.
+<!-- ##### We confirm that welchPSD is doing what we want it to by visualizing the PSD of some decently sized middle chunk of the data for each channel of interest, using empirical power and welch's power. -->
 
-```{r}
-raw_long_fil_Ch8 = raw_long_fil %>%
-  dplyr::filter(channel == "Ch8", block_cond == "MI")
-
-len = nrow(raw_long_fil_Ch8)
-for_pwr = raw_long_fil_Ch8$and_notch_filtered[(len/2):(len/2+len/100)]
-
-spec_me = empiricalSpectrum(ts(for_pwr))
-
-spec_me2 = welchPSD(ts(for_pwr), seglength = 128)
-
-plot(spec_me$freq*128, spec_me$power,  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Channel 8")
-lines(spec_me2$frequency*128, spec_me2$power, col = "red")
-
-plot(spec_me$freq*128, spec_me$power, log = "y",  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Channel 8")
-lines(spec_me2$frequency*128, spec_me2$power, col = "red")
-
-
-raw_long_fil_Ch12 = raw_long_fil %>%
-  dplyr::filter(channel == "Ch12", block_cond == "MI")
-
-len = nrow(raw_long_fil_Ch12)
-for_pwr = raw_long_fil_Ch12$and_notch_filtered[(len/2):(len/2+len/100)]
-
-spec_me = empiricalSpectrum(ts(for_pwr))
-
-spec_me2 = welchPSD(ts(for_pwr), seglength = 128)
-
-plot(spec_me$freq*128, spec_me$power,  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Channel 12")
-lines(spec_me2$frequency*128, spec_me2$power, col = "red")
-
-plot(spec_me$freq*128, spec_me$power, log = "y",  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Channel 12")
-lines(spec_me2$frequency*128, spec_me2$power, col = "red")
-```
+<!-- # ```{r} -->
+<!-- # raw_long_fil_Ch8 = raw_long_fil %>% -->
+<!-- #   dplyr::filter(channel == "Ch8", block_cond == "MI") -->
+<!-- # -->
+<!-- # len = nrow(raw_long_fil_Ch8) -->
+<!-- # for_pwr = raw_long_fil_Ch8$and_notch_filtered[(len/2):(len/2+len/100)] -->
+<!-- # -->
+<!-- # spec_me = empiricalSpectrum(ts(for_pwr)) -->
+<!-- # -->
+<!-- # spec_me2 = welchPSD(ts(for_pwr), seglength = 128) -->
+<!-- # -->
+<!-- # plot(spec_me$freq*128, spec_me$power,  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Channel 8") -->
+<!-- # lines(spec_me2$frequency*128, spec_me2$power, col = "red") -->
+<!-- # -->
+<!-- # plot(spec_me$freq*128, spec_me$power, log = "y",  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Channel 8") -->
+<!-- # lines(spec_me2$frequency*128, spec_me2$power, col = "red") -->
+<!-- # -->
+<!-- # -->
+<!-- # raw_long_fil_Ch12 = raw_long_fil %>% -->
+<!-- #   dplyr::filter(channel == "Ch12", block_cond == "MI") -->
+<!-- # -->
+<!-- # len = nrow(raw_long_fil_Ch12) -->
+<!-- # for_pwr = raw_long_fil_Ch12$and_notch_filtered[(len/2):(len/2+len/100)] -->
+<!-- # -->
+<!-- # spec_me = empiricalSpectrum(ts(for_pwr)) -->
+<!-- # -->
+<!-- # spec_me2 = welchPSD(ts(for_pwr), seglength = 128) -->
+<!-- # -->
+<!-- # plot(spec_me$freq*128, spec_me$power,  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Channel 12") -->
+<!-- # lines(spec_me2$frequency*128, spec_me2$power, col = "red") -->
+<!-- # -->
+<!-- # plot(spec_me$freq*128, spec_me$power, log = "y",  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Channel 12") -->
+<!-- # lines(spec_me2$frequency*128, spec_me2$power, col = "red") -->
+<!-- ``` -->
 
 ## Compare Realtime MATLAB with Offline Calculations
 
-##### Let's compare the calculated power values to those that were computed in realtime in MATLAB. We see a very strong positive relationship between these power values for each channel. The discrency appears to lie in the magnitudes of the values, with the MATLAB computed power values being quite a bit smaller. The power values computed in real time were taken from smaller time windows and averaged (moving averages were themselves averaged), whereas those computed above were done for each trial stage. Both types of power estimates, however, were computed using welch's PSD.
+<!-- ##### Let's compare the calculated power values to those that were computed in realtime in MATLAB. We see a very strong positive relationship between these power values for each channel. The discrency appears to lie in the magnitudes of the values, with the MATLAB computed power values being quite a bit smaller. The power values computed in real time were taken from smaller time windows and averaged (moving averages were themselves averaged), whereas those computed above were done for each trial stage. Both types of power estimates, however, were computed using welch's PSD. -->
+
+##### Power values appear strongly related. The discrepency would come from the fact that realtime power values are calculated based on a data buffer - at each iteration, the data from the buffer are filtered and squared. The offline power values are calculated by first filtering the entire continuous signal, and then taking the average for a given 'trial stage' of the squared signal. 
 
 ```{r}
 pwr_cal = raw_long_pwr %>%
-  dplyr::filter(block != "1", !(block == 3 & trial == 42 & block_cond == "MI")) %>%
+  dplyr::filter(block != "1" & trial != 60) %>%
   group_by(block_cond, block, trial, trial_stage, channel) %>%
   summarize(avg_cal = mean(power)) 
 
 pwr_real = pwr_long %>%
-  dplyr::filter(block != "1", !(block == 3 & trial == 42 & block_cond == "MI")) %>%
+  dplyr::filter(block != "1" & trial != 60) %>%
   group_by(block_cond, block, trial, trial_stage, channel) %>%
   summarize(avg_real = mean(signal)) 
 
@@ -245,16 +251,16 @@ pwr_compare %>%
     geom_smooth()+ 
     facet_grid(channel~block_cond)+
     xlab("Calculated Power")+
-    ylab("Realtime Power")+
-    xlim(c(0,600))+  # to ignore outliers
-    ylim(c(0,20))
+    ylab("Realtime Power")
 
 pwr_compare[,-c(2,3,4)] %>%
   group_by(block_cond, channel) %>%
   summarize(corr = cor(avg_cal, avg_real, use = "complete"))
 ```
 
-##### Now, we can compute baseline power values from our calculated power values and compare those with those of the realtime MATAB output. The hardly seems to be a relationship in the ME condition. I'm unsure as to why right now... We've already shown that the power values correlate with one another. The moving baseline, if computed properly, should related in some way. Interestingly, the moving average baselines calculated offline and in real time match up well in the MI condition. 
+<!-- ##### Now, we can compute baseline power values from our calculated power values and compare those with those of the realtime MATAB output. The hardly seems to be a relationship in the ME condition. I'm unsure as to why right now... We've already shown that the power values correlate with one another. The moving baseline, if computed properly, should related in some way. Interestingly, the moving average baselines calculated offline and in real time match up well in the MI condition.  -->
+
+##### The baseline power calculations also appear related but slightly different when comparing online and offline calculations. The only reason these baseline power calculations should be different is because of the filtering. For one, we do forward-backward offline, but only forward online. Secondly, a filter is applied on each iteration, then the power that is extracted on each iteration (after filtering) is averaged. This, of course, is different than just taking a single average of the signal over the fixation period.
 
 ```{r}
 baseline_pwr_cal = pwr_cal %>%
@@ -277,8 +283,8 @@ for (i in 1:nrow(baseline_pwr_cal)) {
   
   window = c(baseline_pwr_cal$baseline[i], window)
   
-  if (length(window) > 40) {
-      window_40 = window[1:40]
+  if (length(window) > 1) {
+      window_40 = window[1:1]
   } else {
     window_40 = window
   }
@@ -322,8 +328,8 @@ LI_cal = raw_long_pwr %>%
   mutate(
     LI_cal = ifelse(
       cue_loc == "right"
-      , log2(Ch12/cal_mavg) - log2(Ch8/cal_mavg)
-      , log2(Ch8/cal_mavg) - log2(Ch12/cal_mavg)
+      , log(Ch12/cal_mavg) - log(Ch8/cal_mavg)
+      , log(Ch8/cal_mavg) - log(Ch12/cal_mavg)
     )
   )
 
@@ -362,8 +368,8 @@ pwr_long %>%
   summarize(
     stage_time = ifelse(
       trial_stage == "NF" || trial_stage == "fixation"
-      , max(iteration)*(1/60)*5
-      , max(iteration)*(1/60)*1
+      , max(iteration)*(1/60)*3
+      , max(iteration)*(1/60)*3
       )
   ) %>%
   ggplot()+
@@ -439,226 +445,219 @@ ERD_real %>%
 
 
 
-# Offline Analysis
+<!-- # Offline Analysis -->
 
-## LI scores
+<!-- ## LI scores -->
 
-##### The raw values correspond to the trends seen for the real time data. We already know that LIs will correspond between realtime and calculated analyses, as we've checked their relationship and it is very strong.
+<!-- ##### The raw values correspond to the trends seen for the real time data. We already know that LIs will correspond between realtime and calculated analyses, as we've checked their relationship and it is very strong. -->
 
-```{r}
-LI_cal %>%
-  group_by(block_cond, block) %>%
-  summarize(mean_LI = mean(LI_cal, na.rm=T))
+<!-- ```{r} -->
+<!-- LI_cal %>% -->
+<!--   group_by(block_cond, block) %>% -->
+<!--   summarize(mean_LI = mean(LI_cal, na.rm=T)) -->
 
-LI_cal %>% 
-  ggplot(aes(y = LI_cal, x = trial))+
-    geom_line()+
-    facet_grid(block~block_cond) + 
-    ggtitle("Offline: NF Across Trials for Each Block")+
-    xlab("Trial")+
-    ylab("LI")+
-    geom_hline(yintercept = 0, linetype = "dashed")
-```
+<!-- LI_cal %>%  -->
+<!--   ggplot(aes(y = LI_cal, x = trial))+ -->
+<!--     geom_line()+ -->
+<!--     facet_grid(block~block_cond) +  -->
+<!--     ggtitle("Offline: NF Across Trials for Each Block")+ -->
+<!--     xlab("Trial")+ -->
+<!--     ylab("LI")+ -->
+<!--     geom_hline(yintercept = 0, linetype = "dashed") -->
+<!-- ``` -->
 
-## ERD from squared amplitude 
+<!-- ## ERD from squared amplitude  -->
 
-##### First we filter from 13 to 30 and get the squared amplitudes
+<!-- ##### First we filter from 13 to 30 and get the squared amplitudes -->
 
-```{r}
-bu2 = butter(6, c(13,30)/(128/2), type = 'pass')
+<!-- ```{r} -->
+<!-- raw_long_sq_Ch12 = raw_long_sq %>% -->
+<!--   dplyr::filter(channel == "Ch12", block_cond == "MI") -->
 
-raw_long_sq = raw_long %>%
-  group_by(block_cond, channel) %>%
-  mutate(butter_filtered = signal::filter(bu2, signal)) %>%
-  mutate(power = as.numeric(butter_filtered)^2)
-  
-raw_long_sq_Ch12 = raw_long_sq %>%
-  dplyr::filter(channel == "Ch12", block_cond == "MI")
+<!-- len = nrow(raw_long_sq_Ch12) -->
+<!-- for_pwr = raw_long_sq_Ch12$butter_filtered[(len/2):(len/2+len/100)] -->
 
-len = nrow(raw_long_sq_Ch12)
-for_pwr = raw_long_sq_Ch12$butter_filtered[(len/2):(len/2+len/100)]
+<!-- spec_me = empiricalSpectrum(ts(for_pwr)) -->
 
-spec_me = empiricalSpectrum(ts(for_pwr))
+<!-- spec_me2 = welchPSD(ts(for_pwr), seglength = 128) -->
 
-spec_me2 = welchPSD(ts(for_pwr), seglength = 128)
+<!-- plot(spec_me$freq*128, spec_me$power,  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Strict BP Filter: Channel 12") -->
+<!-- lines(spec_me2$frequency*128, spec_me2$power, col = "red") -->
 
-plot(spec_me$freq*128, spec_me$power,  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Strict BP Filter: Channel 12")
-lines(spec_me2$frequency*128, spec_me2$power, col = "red")
+<!-- plot(spec_me$freq*128, spec_me$power, log = "y",  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Strict BP Filter: Channel 12") -->
+<!-- lines(spec_me2$frequency*128, spec_me2$power, col = "red") -->
 
-plot(spec_me$freq*128, spec_me$power, log = "y",  type="l", xlab="Frequency (Hz)", ylab="Power", main = "Strict BP Filter: Channel 12")
-lines(spec_me2$frequency*128, spec_me2$power, col = "red")
+<!-- # raw_long_sq %>% -->
+<!-- #   dplyr::filter(block == 2, trial < 10) %>% -->
+<!-- #   ggplot(aes(y = butter_filtered, x = time_adj))+ -->
+<!-- #     geom_line()+ -->
+<!-- #     facet_grid(channel ~block_cond)+ -->
+<!-- #     ggtitle("Partial Filtered Experiment Data")+ -->
+<!-- #     xlab("Time (s)")+ -->
+<!-- #     ylab("Signal (uV?)") -->
+<!-- ``` -->
 
-# raw_long_sq %>%
-#   dplyr::filter(block == 2, trial < 10) %>%
-#   ggplot(aes(y = butter_filtered, x = time_adj))+
-#     geom_line()+
-#     facet_grid(channel ~block_cond)+
-#     ggtitle("Partial Filtered Experiment Data")+
-#     xlab("Time (s)")+
-#     ylab("Signal (uV?)")
-```
+<!-- ##### We compare actual power values. They are strongly related as can be seen by the graphs, minus a few outliers as indicated by the correlations in the ME condition. The histogram indicates that the power calculated using Welch's method is always greater than what is aquired by averaging squared amplitudes. This may be because the strict filtering decreases amplitudes overall to some extent...  -->
 
-##### We compare actual power values. They are strongly related as can be seen by the graphs, minus a few outliers as indicated by the correlations in the ME condition. The histogram indicates that the power calculated using Welch's method is always greater than what is aquired by averaging squared amplitudes. This may be because the strict filtering decreases amplitudes overall to some extent... 
+<!-- ```{r} -->
+<!-- pwr_sq = raw_long_sq %>% -->
+<!--   dplyr::filter(channel == "Ch8" | channel == "Ch12") %>% -->
+<!--   group_by(block_cond, block, trial, trial_stage, channel) %>%  -->
+<!--   summarize(pwr_sq = mean(power)) -->
 
-```{r}
-pwr_sq = raw_long_sq %>%
-  dplyr::filter(channel == "Ch8" | channel == "Ch12") %>%
-  group_by(block_cond, block, trial, trial_stage, channel) %>% 
-  summarize(pwr_sq = mean(power))
+<!-- pwr_compare_sq = left_join(pwr_cal, pwr_sq)  # this gets rid of block 1 -->
 
-pwr_compare_sq = left_join(pwr_cal, pwr_sq)  # this gets rid of block 1
+<!-- pwr_compare_sq %>%  -->
+<!--   ggplot(aes(x = avg_cal, y = pwr_sq))+ -->
+<!--     geom_point()+ -->
+<!--     geom_smooth()+  -->
+<!--     facet_grid(channel~block_cond)+ -->
+<!--     xlab("Calculated Power")+ -->
+<!--     ylab("Sq Power")+ -->
+<!--     ylim(c(0,100))+   # ignore outliers -->
+<!--     xlim(c(0,500)) -->
 
-pwr_compare_sq %>% 
-  ggplot(aes(x = avg_cal, y = pwr_sq))+
-    geom_point()+
-    geom_smooth()+ 
-    facet_grid(channel~block_cond)+
-    xlab("Calculated Power")+
-    ylab("Sq Power")+
-    ylim(c(0,100))+   # ignore outliers
-    xlim(c(0,500))
+<!-- pwr_compare_sq %>% -->
+<!--   group_by(block_cond, channel) %>% -->
+<!--   summarize(corr = cor(avg_cal, pwr_sq, use = "complete")) -->
 
-pwr_compare_sq %>%
-  group_by(block_cond, channel) %>%
-  summarize(corr = cor(avg_cal, pwr_sq, use = "complete"))
-
-hist(pwr_compare_sq$pwr_sq - pwr_compare_sq$avg_cal, breaks = 100, xlab = "Difference in Power (Sq - PSD)", main = "")
-```
+<!-- hist(pwr_compare_sq$pwr_sq - pwr_compare_sq$avg_cal, breaks = 100, xlab = "Difference in Power (Sq - PSD)", main = "") -->
+<!-- ``` -->
 
 
-##### Then, we get baseline values
+<!-- ##### Then, we get baseline values -->
 
-```{r}
-baseline_pwr_sq = raw_long_sq %>%
-  dplyr::filter(trial_stage == "fixation", channel == "Ch8" | channel == "Ch12") %>%
-  group_by(block_cond, block, trial) %>% 
-  summarize(baseline = mean(power))
+<!-- ```{r} -->
+<!-- baseline_pwr_sq = raw_long_sq %>% -->
+<!--   dplyr::filter(trial_stage == "fixation", channel == "Ch8" | channel == "Ch12") %>% -->
+<!--   group_by(block_cond, block, trial) %>%  -->
+<!--   summarize(baseline = mean(power)) -->
 
-print("Proportion of NAs")
-mean(is.na(baseline_pwr_sq$baseline))
+<!-- print("Proportion of NAs") -->
+<!-- mean(is.na(baseline_pwr_sq$baseline)) -->
 
-baseline_pwr_sq = baseline_pwr_sq %>%
-  filter(!is.na(baseline))
+<!-- baseline_pwr_sq = baseline_pwr_sq %>% -->
+<!--   filter(!is.na(baseline)) -->
 
-mavgs = NULL
-for (i in 1:nrow(baseline_pwr_sq)) {
-  
-  if (baseline_pwr_sq$block[i] == 2 & baseline_pwr_sq$trial[i] == 1) {
-    window = NULL
-  }
-  
-  window = c(baseline_pwr_sq$baseline[i], window)
-  
-  if (length(window) > 40) {
-      window_40 = window[1:40]
-  } else {
-    window_40 = window
-  }
-  
-  mavg = mean(window_40)
-  mavgs = c(mavgs, mavg)
-}
+<!-- mavgs = NULL -->
+<!-- for (i in 1:nrow(baseline_pwr_sq)) { -->
 
-mavg_pwr_sq = tibble(block_cond = baseline_pwr_sq$block_cond,  block = baseline_pwr_sq$block, trial = baseline_pwr_sq$trial, mavg_sq = mavgs) 
+<!--   if (baseline_pwr_sq$block[i] == 2 & baseline_pwr_sq$trial[i] == 1) { -->
+<!--     window = NULL -->
+<!--   } -->
 
-mavg_compare_sq = left_join(mavg_pwr_cal, mavg_pwr_sq)  # this gets rid of NA
+<!--   window = c(baseline_pwr_sq$baseline[i], window) -->
 
-mavg_compare_sq %>%
-  ggplot(aes(x = cal_mavg, y = mavg_sq))+
-    geom_point()+
-    geom_smooth()+ 
-    facet_grid(block_cond~.)+
-    ggtitle("Moving Average Baseline Power")+
-    xlab("Calculated Baseline")+
-    ylab("Sq Basline")
+<!--   if (length(window) > 40) { -->
+<!--       window_40 = window[1:40] -->
+<!--   } else { -->
+<!--     window_40 = window -->
+<!--   } -->
 
-mavg_compare_sq %>%
-  group_by(block_cond) %>%
-  summarize(corr = cor(cal_mavg, mavg_sq, use = "complete"))
+<!--   mavg = mean(window_40) -->
+<!--   mavgs = c(mavgs, mavg) -->
+<!-- } -->
 
-plot(baseline_pwr_sq$baseline, type = "line", xlab = "Trial", ylab = "Baseline Power", main = "Moving Average vs. Actual Basline Values")
-lines(mavg_pwr_sq$mavg_sq)
-```
+<!-- mavg_pwr_sq = tibble(block_cond = baseline_pwr_sq$block_cond,  block = baseline_pwr_sq$block, trial = baseline_pwr_sq$trial, mavg_sq = mavgs)  -->
 
+<!-- mavg_compare_sq = left_join(mavg_pwr_cal, mavg_pwr_sq)  # this gets rid of NA -->
 
-##### Get LIs. The sq calculated LIs and PSD calculated LI have an extremely strong relationship and differ in absolute values by very small amounts. This indicates that filtering 13-30 then taking the square of the signal comes to about the same as doing the PSD on the loosely filtered signal (4-60), as expected! Going forward the analyses and feedback will be based on the simply taking the square of the signal to get power. 
+<!-- mavg_compare_sq %>% -->
+<!--   ggplot(aes(x = cal_mavg, y = mavg_sq))+ -->
+<!--     geom_point()+ -->
+<!--     geom_smooth()+  -->
+<!--     facet_grid(block_cond~.)+ -->
+<!--     ggtitle("Moving Average Baseline Power")+ -->
+<!--     xlab("Calculated Baseline")+ -->
+<!--     ylab("Sq Basline") -->
 
-```{r}
-LI_sq = raw_long_sq %>%
-  dplyr::filter(trial_stage == "NF", channel == "Ch8" || channel == "Ch12") %>%
-  group_by(block_cond, block, trial, trial_stage, cue_loc, channel) %>%
-  summarize(power = mean(power)) %>%
-  left_join(mavg_pwr_sq) %>%
-  spread(key = channel, power) %>%
-  mutate(
-    LI_sq = ifelse(
-      cue_loc == "right"
-      , log2(Ch12/mavg_sq) - log2(Ch8/mavg_sq)
-      , log2(Ch8/mavg_sq) - log2(Ch12/mavg_sq)
-    )
-  )
+<!-- mavg_compare_sq %>% -->
+<!--   group_by(block_cond) %>% -->
+<!--   summarize(corr = cor(cal_mavg, mavg_sq, use = "complete")) -->
 
-LI_compare_sq = left_join(LI_sq, LI_cal[,c(1,2,3,length(LI_cal))])  # get rid of first trial of first block
-
-LI_compare_sq = LI_compare_sq %>%
-  filter(!is.na(LI_cal), !is.na(LI_sq))
-
-LI_compare_sq %>% 
-  ggplot(aes(x = LI_cal, y = LI_sq))+
-    geom_point()+
-    geom_smooth()+
-    facet_grid(block_cond~.)+
-    ggtitle("Calculated by Trial")+
-    xlab("Calculated LI")+
-    ylab("Sq LI")
-
-LI_compare_sq %>%
-  group_by(block_cond) %>%
-  summarize(corr = cor(LI_cal, LI_sq, use = "complete"))
-
-hist(LI_compare_sq$LI_cal - LI_compare_sq$LI_sq, xlab = "LI Difference Between Calculation Methods", main = "")
-```
-
-##### LI as a function of trial. The results are virtually identical to those from the PSD calculated power samples.
-
-```{r}
-LI_sq %>%
-  group_by(block_cond, block) %>%
-  summarize(mean_LI = mean(LI_sq, na.rm=T))
-
-LI_sq %>%
-  ggplot(aes(y = LI_sq, x = trial))+
-    geom_line()+
-    facet_grid(block~block_cond) +
-    ggtitle("Offline (Sq): NF Across Trials for Each Block")+
-    xlab("Trial")+
-    ylab("LI (Sq)")+
-    geom_hline(yintercept = 0, linetype = "dashed")
-```
+<!-- plot(baseline_pwr_sq$baseline, type = "line", xlab = "Trial", ylab = "Baseline Power", main = "Moving Average vs. Actual Basline Values") -->
+<!-- lines(mavg_pwr_sq$mavg_sq) -->
+<!-- ``` -->
 
 
-##### ERD. These actually don't look the same as the averages that were gotten from the PSD calculations. This is sort of strange considering that everything else was so similar. Overall, the values are smaller (more negative). The signals also appears more noisy. 
+<!-- ##### Get LIs. The sq calculated LIs and PSD calculated LI have an extremely strong relationship and differ in absolute values by very small amounts. This indicates that filtering 13-30 then taking the square of the signal comes to about the same as doing the PSD on the loosely filtered signal (4-60), as expected! Going forward the analyses and feedback will be based on the simply taking the square of the signal to get power.  -->
 
-```{r}
-ERD_sq = raw_long_sq %>%
-  dplyr::filter(trial_stage == "NF", block != "1", channel == "Ch8" | channel == "Ch12") %>%
-  mutate(laterality = ifelse(
-    (cue_loc == "right" & channel == "Ch8") | (cue_loc == "left" & channel == "Ch12")
-      , "contra"
-      , "ipsi"
-    )
-  ) %>%
-  left_join(mavg_pwr_sq) %>%
-  mutate(relative_power = log2(power/mavg_sq))
+<!-- ```{r} -->
+<!-- LI_sq = raw_long_sq %>% -->
+<!--   dplyr::filter(trial_stage == "NF", channel == "Ch8" || channel == "Ch12") %>% -->
+<!--   group_by(block_cond, block, trial, trial_stage, cue_loc, channel) %>% -->
+<!--   summarize(power = mean(power)) %>% -->
+<!--   left_join(mavg_pwr_sq) %>% -->
+<!--   spread(key = channel, power) %>% -->
+<!--   mutate( -->
+<!--     LI_sq = ifelse( -->
+<!--       cue_loc == "right" -->
+<!--       , log2(Ch12/mavg_sq) - log2(Ch8/mavg_sq) -->
+<!--       , log2(Ch8/mavg_sq) - log2(Ch12/mavg_sq) -->
+<!--     ) -->
+<!--   ) -->
 
-ERD_sq %>%
-  group_by(block_cond, trial_stage, iteration, laterality) %>%
-  summarize(grand_avg = mean(relative_power, na.rm = T)) %>%
-  ggplot(aes(x=iteration, y=grand_avg, group = laterality, color = laterality))+
-    geom_line()+
-    facet_grid(block_cond~trial_stage)+
-    ggtitle("ERD (Sq)")+
-    xlab("Time (iteration)")+
-    ylab("Average Log2(Power(Sq)/Baseline)")
-```
+<!-- LI_compare_sq = left_join(LI_sq, LI_cal[,c(1,2,3,length(LI_cal))])  # get rid of first trial of first block -->
+
+<!-- LI_compare_sq = LI_compare_sq %>% -->
+<!--   filter(!is.na(LI_cal), !is.na(LI_sq)) -->
+
+<!-- LI_compare_sq %>%  -->
+<!--   ggplot(aes(x = LI_cal, y = LI_sq))+ -->
+<!--     geom_point()+ -->
+<!--     geom_smooth()+ -->
+<!--     facet_grid(block_cond~.)+ -->
+<!--     ggtitle("Calculated by Trial")+ -->
+<!--     xlab("Calculated LI")+ -->
+<!--     ylab("Sq LI") -->
+
+<!-- LI_compare_sq %>% -->
+<!--   group_by(block_cond) %>% -->
+<!--   summarize(corr = cor(LI_cal, LI_sq, use = "complete")) -->
+
+<!-- hist(LI_compare_sq$LI_cal - LI_compare_sq$LI_sq, xlab = "LI Difference Between Calculation Methods", main = "") -->
+<!-- ``` -->
+
+<!-- ##### LI as a function of trial. The results are virtually identical to those from the PSD calculated power samples. -->
+
+<!-- ```{r} -->
+<!-- LI_sq %>% -->
+<!--   group_by(block_cond, block) %>% -->
+<!--   summarize(mean_LI = mean(LI_sq, na.rm=T)) -->
+
+<!-- LI_sq %>% -->
+<!--   ggplot(aes(y = LI_sq, x = trial))+ -->
+<!--     geom_line()+ -->
+<!--     facet_grid(block~block_cond) + -->
+<!--     ggtitle("Offline (Sq): NF Across Trials for Each Block")+ -->
+<!--     xlab("Trial")+ -->
+<!--     ylab("LI (Sq)")+ -->
+<!--     geom_hline(yintercept = 0, linetype = "dashed") -->
+<!-- ``` -->
+
+
+<!-- ##### ERD. These actually don't look the same as the averages that were gotten from the PSD calculations. This is sort of strange considering that everything else was so similar. Overall, the values are smaller (more negative). The signals also appears more noisy.  -->
+
+<!-- ```{r} -->
+<!-- ERD_sq = raw_long_sq %>% -->
+<!--   dplyr::filter(trial_stage == "NF", block != "1", channel == "Ch8" | channel == "Ch12") %>% -->
+<!--   mutate(laterality = ifelse( -->
+<!--     (cue_loc == "right" & channel == "Ch8") | (cue_loc == "left" & channel == "Ch12") -->
+<!--       , "contra" -->
+<!--       , "ipsi" -->
+<!--     ) -->
+<!--   ) %>% -->
+<!--   left_join(mavg_pwr_sq) %>% -->
+<!--   mutate(relative_power = log2(power/mavg_sq)) -->
+
+<!-- ERD_sq %>% -->
+<!--   group_by(block_cond, trial_stage, iteration, laterality) %>% -->
+<!--   summarize(grand_avg = mean(relative_power, na.rm = T)) %>% -->
+<!--   ggplot(aes(x=iteration, y=grand_avg, group = laterality, color = laterality))+ -->
+<!--     geom_line()+ -->
+<!--     facet_grid(block_cond~trial_stage)+ -->
+<!--     ggtitle("ERD (Sq)")+ -->
+<!--     xlab("Time (iteration)")+ -->
+<!--     ylab("Average Log2(Power(Sq)/Baseline)") -->
+<!-- ``` -->
 

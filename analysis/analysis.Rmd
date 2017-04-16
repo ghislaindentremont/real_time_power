@@ -1,7 +1,6 @@
 ---
 title: "NF Analysis"
 author: Ghislain d'Entremont
-date: March 19, 2017
 output: html_document
 ---
 
@@ -23,7 +22,7 @@ setwd("/Volumes/LaCie/Experiments/NF_data/Piloting")
 
 raw = map_df(
   .x = list.files(
-    pattern = "p101_raw"
+    pattern = "p99_raw"
   )
   , .f = function(file) {
     read_csv(
