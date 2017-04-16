@@ -52,7 +52,8 @@ try
         , 'Enter participant age:'
         ,'Enter participant sex (''m'' or ''f''):'
         , 'Enter participant handedness (''r'' or ''l''):'
-        , 'Enter condition (''MI'' or ''ME''):'
+        , 'Enter task condition (''MI'' or ''ME''):'
+        , 'Enter feedback condition (''C'', ''I'')'
         };
     dlg_title = 'Demographics';
     num_lines = 1;
@@ -64,8 +65,11 @@ try
         age = 99;
         sex = 99;
         hand = 99; 
+        
         task_str = 'MI';
         task = 1;
+        feedback_str = 'C';
+        feedback = 1;
         
     else
         
@@ -74,14 +78,16 @@ try
         sex = char(dems(3));
         hand = char(dems(4));
         task_str = char(dems(5));
+        feedback_str = char(dems(6));
 
-        while (strcmp(hand, 'r') ~= 1 && strcmp(hand, 'l') ~= 1) ||  (strcmp(sex, 'm') ~= 1 && strcmp(sex, 'f') ~= 1) ||  (strcmp(task_str, 'MI') ~= 1 && strcmp(task_str, 'ME') ~= 1)
+        while (strcmp(hand, 'r') ~= 1 && strcmp(hand, 'l') ~= 1) ||  (strcmp(sex, 'm') ~= 1 && strcmp(sex, 'f') ~= 1) ||  (strcmp(task_str, 'MI') ~= 1 && strcmp(task_str, 'ME') ~= 1) ||  (strcmp(feedback_str, 'C') ~= 1 && strcmp(feedback_str, 'I') ~= 1)
             dems = inputdlg(prompt,dlg_title,num_lines);
             id = char(dems(1));
             age = char(dems(2));
             sex = char(dems(3));
             hand = char(dems(4));
             task_str = char(dems(5));
+            feedback_str = char(dems(6));
         end
 
         % get numbers
@@ -108,6 +114,14 @@ try
             task = 1;
         elseif (strcmp(task_str, 'ME') == 1)
             task = 2;
+        else
+            disp('ERROR: block condition');  % should also get and error when putting in response matrix
+        end  
+        
+        if (strcmp(task_str, 'C') == 1)
+            feedback = 1;
+        elseif (strcmp(task_str, 'I') == 1)
+            feedback = 2;
         else
             disp('ERROR: block condition');  % should also get and error when putting in response matrix
         end  
@@ -201,6 +215,17 @@ try
     
     LI_SCALE = 20;
     LOG_ERS_SCALE = 20;
+    
+    % for Intermittent condition
+    holder_bar_right = [xCenter + xCenter/4 - FIX_CROSS_DIM_PIX/2
+        , yCenter + LINE_WIDTH_PIX/2 
+        , xCenter + xCenter/4 + FIX_CROSS_DIM_PIX/2
+        , yCenter +  LINE_WIDTH_PIX/2 + yCenter/4];
+
+    holder_bar_left = [xCenter - xCenter/4 - FIX_CROSS_DIM_PIX/2
+        , yCenter + LINE_WIDTH_PIX/2 
+        , xCenter - xCenter/4 + FIX_CROSS_DIM_PIX/2;
+        , yCenter + LINE_WIDTH_PIX/2 + yCenter/4];
 
 
     
@@ -356,11 +381,35 @@ try
 
                 %------------------- Block Instruction Message ------------------------
                 Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Begin the Block',...
+                DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Move On',...
                     'center', 'center', white );
                 Screen('Flip', window);
 %                 KbStrokeWait; 
                 %----------------------------------------------------------------------
+                
+                if feedback == 1
+                    
+                    %------------------- Block Instruction Message ------------------------
+                    Screen('TextSize', window, 26); 
+                    DrawFormattedText(window, 'Continuous Feedback: During the motor imagery portion of each trial\nyou will be presented with continous feedback\nregarding your performance. The feedback will be displayed in the form of two continously changing vertical bars.\nYour goal will be to increase the bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Begin the Block',...
+                        'center', 'center', white );
+                    Screen('Flip', window);
+    %                 KbStrokeWait; 
+                    %----------------------------------------------------------------------
+                    
+                elseif feedback == 2
+                    
+                    %------------------- Block Instruction Message ------------------------
+                    Screen('TextSize', window, 26); 
+                    DrawFormattedText(window, 'Intermittent Feedback: During the motor imagery portion of each trial\nyou will be presented with intermittent feedback at the end of each trial\nregarding your performance. The feedback will be displayed in the form of two vertical bars.\nYour goal, across trials, will be to increase the bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Begin the Block',...
+                        'center', 'center', white );
+                    Screen('Flip', window);
+    %                 KbStrokeWait; 
+                    %----------------------------------------------------------------------
+
+                else
+                    disp('ERROR: feedback condition not defined') 
+                end
 
             elseif task == 2
 
@@ -381,9 +430,33 @@ try
                 Screen('Flip', window);
 %                 KbStrokeWait; 
                 %----------------------------------------------------------------------
+                
+                if feedback == 1
+                    
+                    %------------------- Block Instruction Message ------------------------
+                    Screen('TextSize', window, 26); 
+                    DrawFormattedText(window, 'Continuous Feedback: During the motor execution portion of each trial\nyou will be presented with continous feedback\nregarding your performance. The feedback will be displayed in the form of two continously changing vertical bars.\nYour goal will be to increase the bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Begin the Block',...
+                        'center', 'center', white );
+                    Screen('Flip', window);
+    %                 KbStrokeWait; 
+                    %----------------------------------------------------------------------
+                    
+                elseif feedback == 2
+                    
+                    %------------------- Block Instruction Message ------------------------
+                    Screen('TextSize', window, 26); 
+                    DrawFormattedText(window, 'Intermittent Feedback: During the motor ececution portion of each trial\nyou will be presented with intermittent feedback at the end of each trial\nregarding your performance. The feedback will be displayed in the form of two vertical bars.\nYour goal, across trials, will be to increase the bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Begin the Block',...
+                        'center', 'center', white );
+                    Screen('Flip', window);
+    %                 KbStrokeWait; 
+                    %----------------------------------------------------------------------
+
+                else
+                    disp('ERROR: feedback condition not defined') 
+                end
 
             else
-                disp('ERROR: block condition not defined')       
+                disp('ERROR: task condition not defined')       
             end
             
             tic;
@@ -688,7 +761,12 @@ try
             %----------------------------------------------------------------------
 
 
-            %--------------------- Draw NF bar -----------------------------------        
+            %--------------------- Draw NF bar ----------------------------------- 
+            if feedback == 2
+               log_ERS_ipsi_list = [];
+               log_ERS_contra_list = [];
+            end
+            
             [temp_data, ts] = inlet.pull_chunk();
 
 
@@ -721,7 +799,11 @@ try
             end
 
             [LI, log_ERS_ipsi, log_ERS_contra] = get_LI(cue_loc, Pxx, power_rest_mavg);
-
+            
+                   
+            log_ERS_ipsi_list = [log_ERS_ipsi_list log_ERS_ipsi];
+            log_ERS_contra_list = [log_ERS_contra_list log_ERS_contra];
+            
 
             %------------ Save Data -----------%
             pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI log_ERS_ipsi log_ERS_contra];
@@ -740,15 +822,28 @@ try
 %             NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc);
             [NF_bar_left, NF_bar_right] = get_NF_bars(log_ERS_ipsi, log_ERS_contra, LOG_ERS_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc);
            
+            
+            if feedback == 1
+                
+    %             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+    %             Screen('FillRect', window, NF_COLOR, NF_bar); 
+                Screen('FillRect', window, NF_color_left, NF_bar_left); 
+                Screen('FillRect', window, NF_color_right, NF_bar_right);
+                
+            elseif feedback == 2
+                
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                Screen('FillRect', window, NF_color_left, holder_bar_left); 
+                Screen('FillRect', window, NF_color_right, holder_bar_right);
+                
+            else 
+                disp('ERROR: feedback condition undefined')
+            end
 
-            % Draw NF bar 
-%             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
-            Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
-            Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
-%             Screen('FillRect', window, NF_COLOR, NF_bar); 
-            Screen('FillRect', window, NF_color_left, NF_bar_left); 
-            Screen('FillRect', window, NF_color_right, NF_bar_right);
-
+            
             % Flip to the screen
             vbl = Screen('Flip', window);
 
@@ -776,6 +871,10 @@ try
                 [Pxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
                 [LI, log_ERS_ipsi, log_ERS_contra] = get_LI(cue_loc, Pxx, power_rest);
+                
+                
+                log_ERS_ipsi_list = [log_ERS_ipsi_list log_ERS_ipsi];
+                log_ERS_contra_list = [log_ERS_contra_list log_ERS_contra];
 
 
                 %------------ Save Data -----------%
@@ -787,17 +886,136 @@ try
 %                 NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc);
                 [NF_bar_left, NF_bar_right] = get_NF_bars(log_ERS_ipsi, log_ERS_contra, LOG_ERS_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc);
                 
-                % Draw NF bar
-%                 Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
-%                 Screen('FillRect', window, NF_COLOR, NF_bar);
-                Screen('FillRect', window, NF_color_left, NF_bar_left); 
-                Screen('FillRect', window, NF_color_right, NF_bar_right);
+                   
+                if feedback == 1
+
+        %             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+        %             Screen('FillRect', window, NF_COLOR, NF_bar); 
+                    Screen('FillRect', window, NF_color_left, NF_bar_left); 
+                    Screen('FillRect', window, NF_color_right, NF_bar_right);
+
+                elseif feedback == 2
+
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                    Screen('FillRect', window, NF_color_left, holder_bar_left); 
+                    Screen('FillRect', window, NF_color_right, holder_bar_right);
+
+                else 
+                    disp('ERROR: feedback condition undefined')
+                end
+                
 
                 % Flip to the screen
                 vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
 
+            end
+            
+            % trial info
+            iteration = 0;
+            trial_stage = 5;
+            
+            % keep the feedback on for another 5 seconds
+            if feedback == 1
+                
+                [temp_data, ts] = inlet.pull_chunk();
+
+
+                %------------ Save Data -----------%
+                iteration = iteration + 1;
+
+                nrow = size(temp_data,2);
+                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info_mat = repmat(raw_info, nrow, 1);
+
+                raw_eeg_mat = [ts.' temp_data.'];
+
+                raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+                raw_mat = [raw_mat; raw_mat_temp];
+                %----------------------------------%
+                
+                
+                %------------ Save Data -----------%
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI log_ERS_ipsi log_ERS_contra];
+                pwr_mat = [pwr_mat; pwr_mat_temp];
+                %----------------------------------%
+                
+                
+    %             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+    %             Screen('FillRect', window, NF_COLOR, NF_bar); 
+                Screen('FillRect', window, NF_color_left, NF_bar_left); 
+                Screen('FillRect', window, NF_color_right, NF_bar_right);
+                
+                % Flip to the screen
+                vbl = Screen('Flip', window);
+
+            elseif feedback == 2
+                 
+                [temp_data, ts] = inlet.pull_chunk();
+
+
+                %------------ Save Data -----------%
+                iteration = iteration + 1;
+
+                nrow = size(temp_data,2);
+                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info_mat = repmat(raw_info, nrow, 1);
+
+                raw_eeg_mat = [ts.' temp_data.'];
+
+                raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+                raw_mat = [raw_mat; raw_mat_temp];
+                %----------------------------------%
+                
+                
+                log_ERS_ipsi = mean(log_ERS_ipsi_list);
+                log_ERS_contra = mean(log_ERS_contra_list);
+                
+               
+                %------------ Save Data -----------%
+                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) NaN log_ERS_ipsi log_ERS_contra];
+                pwr_mat = [pwr_mat; pwr_mat_temp];
+                %----------------------------------%
+
+
+%                 NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc);
+                [NF_bar_left, NF_bar_right] = get_NF_bars(log_ERS_ipsi, log_ERS_contra, LOG_ERS_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc); 
+
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                Screen('FillRect', window, NF_color_left, NF_bar_left); 
+                Screen('FillRect', window, NF_color_right, NF_bar_right);
+                
+                % Flip to the screen
+                vbl = Screen('Flip', window);
+
+            else 
+                disp('ERROR: feedback condition undefined')
+            end
+            
+            tic;
+            while toc<5
+                [temp_data, ts] = inlet.pull_chunk();
+
+                %------------ Save Data -----------%
+                iteration = iteration + 1;
+
+                nrow = size(temp_data,2);
+                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info_mat = repmat(raw_info, nrow, 1);
+
+                raw_eeg_mat = [ts.' temp_data.'];
+
+                raw_mat_temp = [raw_info_mat raw_eeg_mat];
+
+                raw_mat = [raw_mat; raw_mat_temp];
+                %----------------------------------%
             end
             %----------------------------------------------------------------------
 
@@ -829,8 +1047,8 @@ try
         end
         
         % write response matrix to csv
-        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/p%i_raw_%s_block_%i.csv', id, task_str, block), raw_mat);
-        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/p%i_pwr_%s_block_%i.csv', id, task_str, block), pwr_mat);
+        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_p%i_raw_%s_block_%i.csv', feedback_str, id, task_str, block), raw_mat);
+        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_p%i_pwr_%s_block_%i.csv', feedback_str, id, task_str, block), pwr_mat);
 
     end
     
