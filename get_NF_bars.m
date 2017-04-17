@@ -1,7 +1,11 @@
 function [NF_bar_left, NF_bar_right] = get_NF_bars(log_ERS_ipsi, log_ERS_contra, LOG_ERS_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc)
         
-    contra_pix = -log_ERS_contra * LOG_ERS_SCALE;
-    ipsi_pix = -log_ERS_ipsi * LOG_ERS_SCALE;
+    % since y-coordinates are flipped such that zero is at the top of the
+    % screen, we treat ERS as positive so that when flipped, ERS is
+    % represented as a downward bar whereas ERD is represented as a upward
+    % bar
+    contra_pix = log_ERS_contra * LOG_ERS_SCALE;
+    ipsi_pix = log_ERS_ipsi * LOG_ERS_SCALE;
 
     if contra_pix > yCenter - LINE_WIDTH_PIX/2 
         contra_pix = yCenter - LINE_WIDTH_PIX/2;

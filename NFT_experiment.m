@@ -68,8 +68,8 @@ try
         
         task_str = 'MI';
         task = 1;
-        feedback_str = 'C';
-        feedback = 1;
+        feedback_str = 'I';
+        feedback = 2;
         
     else
         
@@ -218,14 +218,14 @@ try
     
     % for Intermittent condition
     holder_bar_right = [xCenter + xCenter/4 - FIX_CROSS_DIM_PIX/2
-        , yCenter + LINE_WIDTH_PIX/2 
+        , yCenter - (LINE_WIDTH_PIX/2 + yCenter/4)
         , xCenter + xCenter/4 + FIX_CROSS_DIM_PIX/2
-        , yCenter +  LINE_WIDTH_PIX/2 + yCenter/4];
+        , yCenter - (LINE_WIDTH_PIX/2)];
 
     holder_bar_left = [xCenter - xCenter/4 - FIX_CROSS_DIM_PIX/2
-        , yCenter + LINE_WIDTH_PIX/2 
+        , yCenter - (LINE_WIDTH_PIX/2 + yCenter/4)
         , xCenter - xCenter/4 + FIX_CROSS_DIM_PIX/2;
-        , yCenter + LINE_WIDTH_PIX/2 + yCenter/4];
+        , yCenter - (LINE_WIDTH_PIX/2)];
 
 
     
@@ -762,10 +762,10 @@ try
 
 
             %--------------------- Draw NF bar ----------------------------------- 
-            if feedback == 2
-               log_ERS_ipsi_list = [];
-               log_ERS_contra_list = [];
-            end
+            
+            log_ERS_ipsi_list = [];
+            log_ERS_contra_list = [];
+            
             
             [temp_data, ts] = inlet.pull_chunk();
 
