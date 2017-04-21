@@ -24,7 +24,7 @@ setwd("/Volumes/LaCie/Experiments/NF_data/Piloting")
 
 raw = map_df(
   .x = list.files(
-    pattern = "p99_raw"
+    pattern = "C_p99_raw"
   )
   , .f = function(file) {
     read_csv(
@@ -50,7 +50,6 @@ raw_long = raw %>%
   gather(channel, signal, Ch1:Ch14, factor_key = TRUE)
 
 summary(raw_long)
-
 ```
 
 
@@ -62,7 +61,7 @@ setwd("/Volumes/LaCie/Experiments/NF_data/Piloting")
 
 pwr = map_df(
   .x = list.files(
-    pattern = "p99_pwr"
+    pattern = "C_p99_pwr"
   )
   , .f = function(file) {
     read_csv(
