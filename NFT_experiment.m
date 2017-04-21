@@ -60,16 +60,46 @@ try
     dems = inputdlg(prompt,dlg_title,num_lines);
     
     if strcmp(char(dems(1)), 'test')
+        
+        disp('id, age, sex, and hand are overwritten in test mode')
             
         id = 99;
         age = 99;
         sex = 99;
         hand = 99; 
         
-        task_str = 'MI';
-        task = 1;
-        feedback_str = 'I';
-        feedback = 2;
+        task_str = char(dems(5));
+        feedback_str = char(dems(6)); 
+                
+        if isempty(task_str)~=1 || isempty(feedback_str)~=1
+            while (strcmp(task_str, 'MI') ~= 1 && strcmp(task_str, 'ME') ~= 1) ||  (strcmp(feedback_str, 'C') ~= 1 && strcmp(feedback_str, 'I') ~= 1)
+                dems = inputdlg(prompt,dlg_title,num_lines);
+                task_str = char(dems(5));
+                feedback_str = char(dems(6));
+            end    
+        else
+            task_str = 'MI';
+            task = 1;
+
+            feedback_str = 'C';
+            feedback = 1; 
+        end
+        
+        if (strcmp(task_str, 'MI') == 1)
+            task = 1;
+        elseif (strcmp(task_str, 'ME') == 1)
+            task = 2;
+        else
+            disp('ERROR: block condition');  % should also get and error when putting in response matrix
+        end  
+        
+        if (strcmp(feedback_str, 'C') == 1)
+            feedback = 1;
+        elseif (strcmp(feedback_str, 'I') == 1)
+            feedback = 2;
+        else
+            disp('ERROR: block condition');  % should also get and error when putting in response matrix
+        end  
         
     else
         
@@ -118,9 +148,9 @@ try
             disp('ERROR: block condition');  % should also get and error when putting in response matrix
         end  
         
-        if (strcmp(task_str, 'C') == 1)
+        if (strcmp(feedback_str, 'C') == 1)
             feedback = 1;
-        elseif (strcmp(task_str, 'I') == 1)
+        elseif (strcmp(feedback_str, 'I') == 1)
             feedback = 2;
         else
             disp('ERROR: block condition');  % should also get and error when putting in response matrix
@@ -166,9 +196,8 @@ try
 
     % Set the line width for our fixation cross
     LINE_WIDTH_PIX = 4;
-
-    % make it green 
-    FIX_COLOR = [0 1 0];
+ 
+    FIX_COLOR = [1 1 1];
 
     % just vertical line
     all_cue_coords = [[0 0 0 0]; y_fix_coords];
@@ -181,7 +210,7 @@ try
     %                         Arrow Cue 
     %----------------------------------------------------------------------
 
-    ARR_COLOR = [0 0 1];
+    ARR_COLOR = [1 1 0];
 
     % draw right arrow 
     rarrow_base = [xCenter + LINE_WIDTH_PIX/2
@@ -210,22 +239,38 @@ try
     %----------------------------------------------------------------------
 
     NF_COLOR = [0 0 1];
-    NF_COLOR_CONTRA = [0 1 0]; % want contralateral ERD to go up
-    NF_COLOR_IPSI = [1 0 0];  % want ipsilateral ERD to go up less than contra
+    
+    NF_COLOR_CONTRA = [0 0 1]; % want contralateral ERD to go up
+    NF_COLOR_IPSI = [150 150 255]/255;  % want ipsilateral ERD to go up less than contra
+    
+%     NF_COLOR_FILL = [105 105 105]/255;
+    NF_COLOR_FILL = [1 1 1];
     
     LI_SCALE = 20;
-    LOG_ERS_SCALE = 20;
+    LOG_ERS_SCALE = 20 * 3;
     
     % for Intermittent condition
-    holder_bar_right = [xCenter + xCenter/4 - FIX_CROSS_DIM_PIX/2
+    % up
+    up_holder_bar_right = [xCenter + xCenter/4 - FIX_CROSS_DIM_PIX/2
         , yCenter - (LINE_WIDTH_PIX/2 + yCenter/4)
         , xCenter + xCenter/4 + FIX_CROSS_DIM_PIX/2
         , yCenter - (LINE_WIDTH_PIX/2)];
 
-    holder_bar_left = [xCenter - xCenter/4 - FIX_CROSS_DIM_PIX/2
+    up_holder_bar_left = [xCenter - xCenter/4 - FIX_CROSS_DIM_PIX/2
         , yCenter - (LINE_WIDTH_PIX/2 + yCenter/4)
         , xCenter - xCenter/4 + FIX_CROSS_DIM_PIX/2;
         , yCenter - (LINE_WIDTH_PIX/2)];
+    
+    % down
+    down_holder_bar_right = [xCenter + xCenter/4 - FIX_CROSS_DIM_PIX/2
+        , yCenter + (LINE_WIDTH_PIX/2)
+        , xCenter + xCenter/4 + FIX_CROSS_DIM_PIX/2
+        , yCenter + (LINE_WIDTH_PIX/2 + yCenter/4)];
+
+    down_holder_bar_left = [xCenter - xCenter/4 - FIX_CROSS_DIM_PIX/2
+        , yCenter + (LINE_WIDTH_PIX/2)
+        , xCenter - xCenter/4 + FIX_CROSS_DIM_PIX/2;
+        , yCenter + (LINE_WIDTH_PIX/2 + yCenter/4)];    
 
 
     
@@ -247,7 +292,10 @@ try
     % Cue interval time in seconds and frames 
     CUE_TIME = 1.25;
     cue_time_frames = round(CUE_TIME / ifi/ WAIT_FRAMES);
-
+    
+    % Intermittent feedback time
+    I_NF_TIME = 2.5;
+    I_NF_time_frames = round(I_NF_TIME / ifi/ WAIT_FRAMES);
 
 
     %----------------------------------------------------------------------
@@ -262,7 +310,7 @@ try
     cue_locs_list = {'left', 'right'};
     cue_locs = [1, 2];
     
-    NUM_PRACTICE_TRIALS = 10;
+    NUM_PRACTICE_TRIALS = 5;
 
     TRIALS_PER_CONDITION = 30;
     cond_matrix = repmat(cue_locs, 1, TRIALS_PER_CONDITION);
@@ -277,6 +325,7 @@ try
     %----------------------------------------------------------------------
 
     power_rest_window = [];
+    base_power_window = [];
     WINDOW_LENGTH = 1;
     
     % should be equal to FS defined in next block
@@ -369,42 +418,32 @@ try
            
             if task == 1
 
-                tic;
-                while toc < 5
-                    %------------------- Block Instruction Message ------------------------
-                    Screen('TextSize', window, 36); 
-                    DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.',...
-                        'center', 'center', white );
-                    Screen('Flip', window);
-                    %----------------------------------------------------------------------
-                end
-
                 %------------------- Block Instruction Message ------------------------
                 Screen('TextSize', window, 36); 
                 DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Move On',...
                     'center', 'center', white );
                 Screen('Flip', window);
-%                 KbStrokeWait; 
+                KbStrokeWait; 
                 %----------------------------------------------------------------------
                 
                 if feedback == 1
                     
                     %------------------- Block Instruction Message ------------------------
-                    Screen('TextSize', window, 26); 
-                    DrawFormattedText(window, 'Continuous Feedback: During the motor imagery portion of each trial\nyou will be presented with continous feedback\nregarding your performance. The feedback will be displayed in the form of two continously changing vertical bars.\nYour goal will be to increase the bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Begin the Block',...
+                    Screen('TextSize', window, 36); 
+                    DrawFormattedText(window, 'Continuous Feedback: During the motor imagery portion\nof each trial you will be presented\nwith continous feedback regarding your performance.\n\nThe feedback will be displayed in the form of\ntwo continously changing vertical bars.\n\nYour goal will be to increase the bar\non the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Move On',...
                         'center', 'center', white );
                     Screen('Flip', window);
-    %                 KbStrokeWait; 
+                    KbStrokeWait; 
                     %----------------------------------------------------------------------
                     
                 elseif feedback == 2
                     
                     %------------------- Block Instruction Message ------------------------
-                    Screen('TextSize', window, 26); 
-                    DrawFormattedText(window, 'Intermittent Feedback: During the motor imagery portion of each trial\nyou will be presented with intermittent feedback at the end of each trial\nregarding your performance. The feedback will be displayed in the form of two vertical bars.\nYour goal, across trials, will be to increase the bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Begin the Block',...
+                    Screen('TextSize', window, 36); 
+                    DrawFormattedText(window, 'Intermittent Feedback: During the motor imagery portion\nof each trial you will be presented\nwith intermittent feedback\nat the end of each trial regarding your performance.\n\nThe feedback will be displayed in the form of two vertical bars.\n\nYour goal, across trials, will be to increase\nthe bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Move On',...
                         'center', 'center', white );
                     Screen('Flip', window);
-    %                 KbStrokeWait; 
+                    KbStrokeWait; 
                     %----------------------------------------------------------------------
 
                 else
@@ -413,45 +452,35 @@ try
 
             elseif task == 2
 
-                tic;
-                while toc < 5
-                    %------------------- Block Instruction Message ------------------------
-                    Screen('TextSize', window, 36); 
-                    DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.',...
-                        'center', 'center', white );
-                    Screen('Flip', window);
-                    %----------------------------------------------------------------------
-                end
-
                 %------------------- Block Instruction Message ------------------------
                 Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Begin the Block',...
+                DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Move On',...
                     'center', 'center', white );
                 Screen('Flip', window);
-%                 KbStrokeWait; 
+                KbStrokeWait; 
                 %----------------------------------------------------------------------
                 
                 if feedback == 1
                     
                     %------------------- Block Instruction Message ------------------------
-                    Screen('TextSize', window, 26); 
-                    DrawFormattedText(window, 'Continuous Feedback: During the motor execution portion of each trial\nyou will be presented with continous feedback\nregarding your performance. The feedback will be displayed in the form of two continously changing vertical bars.\nYour goal will be to increase the bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Begin the Block',...
+                    Screen('TextSize', window, 36); 
+                    DrawFormattedText(window, 'Continuous Feedback: During the motor execution portion\nof each trial you will be presented\nwith continous feedback regarding your performance.\n\nThe feedback will be displayed in the form of\ntwo continously changing vertical bars.\n\nYour goal will be to increase the bar\non the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Move On',...
                         'center', 'center', white );
                     Screen('Flip', window);
-    %                 KbStrokeWait; 
+                    KbStrokeWait; 
                     %----------------------------------------------------------------------
                     
                 elseif feedback == 2
                     
                     %------------------- Block Instruction Message ------------------------
-                    Screen('TextSize', window, 26); 
-                    DrawFormattedText(window, 'Intermittent Feedback: During the motor ececution portion of each trial\nyou will be presented with intermittent feedback at the end of each trial\nregarding your performance. The feedback will be displayed in the form of two vertical bars.\nYour goal, across trials, will be to increase the bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Begin the Block',...
+                    Screen('TextSize', window, 36); 
+                    DrawFormattedText(window, 'Intermittent Feedback: During the motor execution portion\nof each trial you will be presented\nwith intermittent feedback\nat the end of each trial regarding your performance.\n\nThe feedback will be displayed in the form of two vertical bars.\n\nYour goal, across trials, will be to increase\nthe bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Move On',...
                         'center', 'center', white );
                     Screen('Flip', window);
-    %                 KbStrokeWait; 
+                    KbStrokeWait; 
                     %----------------------------------------------------------------------
 
-                else
+                else 
                     disp('ERROR: feedback condition not defined') 
                 end
 
@@ -459,44 +488,52 @@ try
                 disp('ERROR: task condition not defined')       
             end
             
-            tic;
-            while toc < 5
-                %------------------- Block Instruction Message ------------------------
-                Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'This is a practice block.',...
-                    'center', 'center', white );
-                Screen('Flip', window);
-                %----------------------------------------------------------------------
-            end
-            
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'This is a practice block.\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'This block is intended to familiarize you\nwith the procedure and stimuli.\n\nTherefore, the feedback will be random.\n\n\nPress Any Key To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
-%             KbStrokeWait; 
+            KbStrokeWait; 
             %----------------------------------------------------------------------
             
         elseif block == 2
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'This is an experimental block.\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'This is the first of four experimental blocks.\n\n\nPress Any Key To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
-%             KbStrokeWait; 
+            KbStrokeWait; 
             %----------------------------------------------------------------------
-        else
+        elseif block == 3
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'Take a break!\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'This is the second of four experimental blocks.\n\n\nPress Any Key To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
-%             KbStrokeWait; 
+            KbStrokeWait; 
             %----------------------------------------------------------------------
+        elseif block == 4
+            %------------------- Block Instruction Message ------------------------
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'This is the third of four experimental blocks.\n\n\nPress Any Key To Begin the Block',...
+                'center', 'center', white );
+            Screen('Flip', window);
+            KbStrokeWait; 
+            %----------------------------------------------------------------------
+        elseif block == 5
+            %------------------- Block Instruction Message ------------------------
+            Screen('TextSize', window, 36); 
+            DrawFormattedText(window, 'This is the fourth and final experimental block.\n\n\nPress Any Key To Begin the Block',...
+                'center', 'center', white );
+            Screen('Flip', window);
+            KbStrokeWait; 
+            %----------------------------------------------------------------------
+        else
+            disp('ERROR: block undifined')
         end
         
         
-        
+              
         for trial = 1:num_trials_in_this_block
             
             % check if escape key has been pressed. If so, exit experiment 
@@ -525,6 +562,9 @@ try
 
             % warm up data buffer 
             [temp_data, ts] = inlet.pull_chunk();
+            
+            % initiate baseline buffer
+            base_buffer = zeros([size(temp_data, 1) 1]);
 
 
             %------------ Save Data -----------%
@@ -532,7 +572,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -552,12 +592,12 @@ try
 
             %------------ Save Data -----------%
             % Pxx(:,1) is C3 whereas P(:,2) is C4 (i.e. left to right)
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN];
+            pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN NaN];
 
             if trial == 1 
-                pwr_mat = pwr_mat_temp;
+                pres_mat = pres_mat_temp;
             else
-                pwr_mat = [pwr_mat; pwr_mat_temp];
+                pres_mat = [pres_mat; pres_mat_temp];
             end
             %----------------------------------%
        
@@ -568,12 +608,15 @@ try
             for frame = 1:iti_time_frames-1
                 % warm up data buffer 
                 [temp_data, ts] = inlet.pull_chunk();
+                
+                % add temp data to baseline buffer
+                base_buffer = [base_buffer temp_data];
 
                 %------------ Save Data -----------%
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -588,8 +631,8 @@ try
 
 
                  %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN];
-                pwr_mat = [pwr_mat; pwr_mat_temp];
+                pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN NaN];
+                pres_mat = [pres_mat; pres_mat_temp];
                 %----------------------------------%
 
 
@@ -604,14 +647,17 @@ try
             power_rest_list = [];
 
             [temp_data, ts] = inlet.pull_chunk();
-
+            
+            % add temp data to baseline buffer
+            base_buffer = [base_buffer temp_data];
+            
 
             %------------ Save Data -----------%
             trial_stage = 2;
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -626,8 +672,8 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN];
-            pwr_mat = [pwr_mat; pwr_mat_temp];
+            pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN NaN];
+            pres_mat = [pres_mat; pres_mat_temp];
             %----------------------------------%
 
 
@@ -640,13 +686,16 @@ try
             for frame = 1:fix_time_frames-1
 
                 [temp_data, ts] = inlet.pull_chunk();
+                
+                % add temp data to baseline buffer
+                base_buffer = [base_buffer temp_data];
 
 
                 %------------ Save Data -----------%
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -655,14 +704,14 @@ try
 
                 raw_mat = [raw_mat; raw_mat_temp];
                 %----------------------------------%
-
+                
 
                 [Pxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN];
-                pwr_mat = [pwr_mat; pwr_mat_temp];
+                pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN NaN];
+                pres_mat = [pres_mat; pres_mat_temp];
                 %----------------------------------%
 
 
@@ -689,6 +738,9 @@ try
             end
 
             [temp_data, ts] = inlet.pull_chunk();
+            
+            % initiate baseline buffer
+            NF_buffer = zeros([size(temp_data, 1) 1]);
 
 
             %------------ Save Data -----------%
@@ -696,7 +748,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -712,8 +764,8 @@ try
 
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN];
-            pwr_mat = [pwr_mat; pwr_mat_temp];
+            pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN NaN];
+            pres_mat = [pres_mat; pres_mat_temp];
             %----------------------------------%
 
 
@@ -727,12 +779,14 @@ try
 
                 [temp_data, ts] = inlet.pull_chunk();
 
+                NF_buffer = [NF_buffer temp_data];
+                
 
                 %------------ Save Data -----------%
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -748,8 +802,8 @@ try
 
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN];
-                pwr_mat = [pwr_mat; pwr_mat_temp];
+                pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration NaN mean(Pxx(:,1)) mean(Pxx(:,2)) NaN NaN NaN NaN];
+                pres_mat = [pres_mat; pres_mat_temp];
                 %----------------------------------%
 
 
@@ -761,13 +815,14 @@ try
             %----------------------------------------------------------------------
 
 
-            %--------------------- Draw NF bar ----------------------------------- 
-            
+            %--------------------- Draw NF bar -----------------------------------      
             log_ERS_ipsi_list = [];
             log_ERS_contra_list = [];
             
             
             [temp_data, ts] = inlet.pull_chunk();
+            
+            NF_buffer = [NF_buffer temp_data];
 
 
             %------------ Save Data -----------%
@@ -775,7 +830,7 @@ try
             iteration = 1;
 
             nrow = size(temp_data,2);
-            raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+            raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
             raw_info_mat = repmat(raw_info, nrow, 1);
 
             raw_eeg_mat = [ts.' temp_data.'];
@@ -789,16 +844,31 @@ try
             [Pxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
             
             power_rest = mean(power_rest_list);
-
-            power_rest_window = [power_rest_window power_rest];
+            power_rest_window = [power_rest_window  power_rest];
+            
+            base_buffer2 = base_buffer(CHANNELS_OF_INTEREST, :).';
+            base_buffer3 = filter(b,a, base_buffer2);  % butterworth
+            base_buffer4 = base_buffer3((end-FS*FIX_TIME+1):end, :);
+            base_power_buffer = base_buffer4.^2;
+            base_power = mean(mean(base_power_buffer));
+            base_power_window = [base_power_window base_power];
 
             if length(power_rest_window) < WINDOW_LENGTH
-                power_rest_mavg = mean(power_rest_window);
+%                 power_rest_mavg = mean(power_rest_window);
+                power_rest_mavg = mean(base_power_window);
             else 
-                power_rest_mavg = mean(power_rest_window(end-WINDOW_LENGTH+1:end));
+%                 power_rest_mavg = mean(power_rest_window(end-WINDOW_LENGTH+1:end));
+                power_rest_mavg = mean(base_power_window(end-WINDOW_LENGTH+1:end));
             end
 
             [LI, log_ERS_ipsi, log_ERS_contra] = get_LI(cue_loc, Pxx, power_rest_mavg);
+            
+            
+            % create random log_ERS variables for familiarization       
+            if block == 1
+                fam_ipsi = log_ERS_ipsi;
+                fam_contra = log_ERS_contra;
+            end
             
                    
             log_ERS_ipsi_list = [log_ERS_ipsi_list log_ERS_ipsi];
@@ -806,8 +876,8 @@ try
             
 
             %------------ Save Data -----------%
-            pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI log_ERS_ipsi log_ERS_contra];
-            pwr_mat = [pwr_mat; pwr_mat_temp];
+            pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI log_ERS_ipsi log_ERS_contra LOG_ERS_SCALE];
+            pres_mat = [pres_mat; pres_mat_temp];
             %----------------------------------%
 
 
@@ -826,18 +896,20 @@ try
             if feedback == 1
                 
     %             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter-xCenter/4 yCenter], 2);
     %             Screen('FillRect', window, NF_COLOR, NF_bar); 
                 Screen('FillRect', window, NF_color_left, NF_bar_left); 
                 Screen('FillRect', window, NF_color_right, NF_bar_right);
                 
             elseif feedback == 2
                 
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
-                Screen('FillRect', window, NF_color_left, holder_bar_left); 
-                Screen('FillRect', window, NF_color_right, holder_bar_right);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                Screen('FillRect', window, NF_COLOR_FILL, up_holder_bar_left);
+                Screen('FillRect', window, NF_COLOR_FILL, up_holder_bar_right);
+                Screen('FillRect', window, NF_COLOR_FILL, down_holder_bar_left);
+                Screen('FillRect', window, NF_COLOR_FILL, down_holder_bar_right);
                 
             else 
                 disp('ERROR: feedback condition undefined')
@@ -851,13 +923,15 @@ try
             for frame = 1:NF_time_frames-1
 
                 [temp_data, ts] = inlet.pull_chunk();
+                
+                NF_buffer = [NF_buffer temp_data];
 
 
                 %------------ Save Data -----------%
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -867,19 +941,28 @@ try
                 raw_mat = [raw_mat; raw_mat_temp];
                 %----------------------------------%
 
-
                 [Pxx, data_buffer] = get_power(temp_data, data_points, data_buffer, pad_points, CHANNELS_OF_INTEREST, PSD_FREQS, FS, a, b, a2, b2);
 
-                [LI, log_ERS_ipsi, log_ERS_contra] = get_LI(cue_loc, Pxx, power_rest);
+                [LI, log_ERS_ipsi, log_ERS_contra] = get_LI(cue_loc, Pxx,  power_rest_mavg);
+                
+                
+                % add random jitter to later save to pres_mat so that it has record of what was shown to the participant         
+                if block == 1
+                    fam_ipsi = fam_ipsi + randn/5;
+                    fam_contra = fam_contra + randn/5;
+                    
+                    log_ERS_ipsi = fam_ipsi;
+                    log_ERS_contra = fam_contra;
+                end
                 
                 
                 log_ERS_ipsi_list = [log_ERS_ipsi_list log_ERS_ipsi];
                 log_ERS_contra_list = [log_ERS_contra_list log_ERS_contra];
-
+                
 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI log_ERS_ipsi log_ERS_contra];
-                pwr_mat = [pwr_mat; pwr_mat_temp];
+                pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI log_ERS_ipsi log_ERS_contra LOG_ERS_SCALE];
+                pres_mat = [pres_mat; pres_mat_temp];
                 %----------------------------------%
 
 
@@ -890,18 +973,20 @@ try
                 if feedback == 1
 
         %             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
-                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
-                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter-xCenter/4 yCenter], 2);
         %             Screen('FillRect', window, NF_COLOR, NF_bar); 
                     Screen('FillRect', window, NF_color_left, NF_bar_left); 
                     Screen('FillRect', window, NF_color_right, NF_bar_right);
 
                 elseif feedback == 2
 
-                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
-                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
-                    Screen('FillRect', window, NF_color_left, holder_bar_left); 
-                    Screen('FillRect', window, NF_color_right, holder_bar_right);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                    Screen('FillRect', window, NF_COLOR_FILL, up_holder_bar_left);
+                    Screen('FillRect', window, NF_COLOR_FILL, up_holder_bar_right);
+                    Screen('FillRect', window, NF_COLOR_FILL, down_holder_bar_left);
+                    Screen('FillRect', window, NF_COLOR_FILL, down_holder_bar_right);
 
                 else 
                     disp('ERROR: feedback condition undefined')
@@ -917,7 +1002,8 @@ try
             iteration = 0;
             trial_stage = 5;
             
-            % keep the feedback on for another 5 seconds
+            % post NF stage
+            % keep the feedback on for another few seconds
             if feedback == 1
                 
                 [temp_data, ts] = inlet.pull_chunk();
@@ -927,7 +1013,7 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -939,17 +1025,19 @@ try
                 
                 
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) LI log_ERS_ipsi log_ERS_contra];
-                pwr_mat = [pwr_mat; pwr_mat_temp];
+                pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) LI log_ERS_ipsi log_ERS_contra LOG_ERS_SCALE];
+                pres_mat = [pres_mat; pres_mat_temp];
                 %----------------------------------%
                 
                 
     %             Screen('DrawLines', window, all_cue_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter yCenter], 2);
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter-xCenter/4 yCenter], 2);
     %             Screen('FillRect', window, NF_COLOR, NF_bar); 
-                Screen('FillRect', window, NF_color_left, NF_bar_left); 
-                Screen('FillRect', window, NF_color_right, NF_bar_right);
+                Screen('FillRect', window, NF_COLOR_FILL, up_holder_bar_left);
+                Screen('FillRect', window, NF_COLOR_FILL, up_holder_bar_right);
+                Screen('FillRect', window, NF_COLOR_FILL, down_holder_bar_left);
+                Screen('FillRect', window, NF_COLOR_FILL, down_holder_bar_right);
                 
                 % Flip to the screen
                 vbl = Screen('Flip', window);
@@ -963,7 +1051,7 @@ try
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -974,21 +1062,28 @@ try
                 %----------------------------------%
                 
                 
-                log_ERS_ipsi = mean(log_ERS_ipsi_list);
-                log_ERS_contra = mean(log_ERS_contra_list);
+%                 log_ERS_ipsi = mean(log_ERS_ipsi_list);
+%                 log_ERS_contra = mean(log_ERS_contra_list);
                 
+                NF_buffer2 = NF_buffer(CHANNELS_OF_INTEREST, :).';
+                NF_buffer3 = filter(b,a, NF_buffer2);  % butterworth
+                NF_buffer4 = NF_buffer3((end-FS*NF_TIME+1):end, :);
+                NF_power_buffer = NF_buffer4.^2;
+                
+                [LI, log_ERS_ipsi, log_ERS_contra] = get_LI(cue_loc, NF_power_buffer,  power_rest_mavg);
+
                
                 %------------ Save Data -----------%
-                pwr_mat_temp = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration power_rest mean(Pxx(:,1)) mean(Pxx(:,2)) NaN log_ERS_ipsi log_ERS_contra];
-                pwr_mat = [pwr_mat; pwr_mat_temp];
+                pres_mat_temp = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration power_rest_mavg mean(Pxx(:,1)) mean(Pxx(:,2)) NaN log_ERS_ipsi log_ERS_contra LOG_ERS_SCALE];
+                pres_mat = [pres_mat; pres_mat_temp];
                 %----------------------------------%
 
 
 %                 NF_bar = get_NF_bar(LI, LI_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc);
                 [NF_bar_left, NF_bar_right] = get_NF_bars(log_ERS_ipsi, log_ERS_contra, LOG_ERS_SCALE, xCenter, yCenter, LINE_WIDTH_PIX, FIX_CROSS_DIM_PIX, cue_loc); 
 
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter+xCenter/4 yCenter], 2);
-                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, NF_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter-xCenter/4 yCenter], 2);
                 Screen('FillRect', window, NF_color_left, NF_bar_left); 
                 Screen('FillRect', window, NF_color_right, NF_bar_right);
                 
@@ -999,15 +1094,14 @@ try
                 disp('ERROR: feedback condition undefined')
             end
             
-            tic;
-            while toc<5
+            for frame = 1:I_NF_time_frames-1
                 [temp_data, ts] = inlet.pull_chunk();
 
                 %------------ Save Data -----------%
                 iteration = iteration + 1;
 
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds block task trial cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -1016,6 +1110,23 @@ try
 
                 raw_mat = [raw_mat; raw_mat_temp];
                 %----------------------------------%
+                
+                if feedback == 1
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                    Screen('FillRect', window, NF_COLOR_FILL, up_holder_bar_left);
+                    Screen('FillRect', window, NF_COLOR_FILL, up_holder_bar_right);
+                    Screen('FillRect', window, NF_COLOR_FILL, down_holder_bar_left);
+                    Screen('FillRect', window, NF_COLOR_FILL, down_holder_bar_right);
+                else
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter+xCenter/4 yCenter], 2);
+                    Screen('DrawLines', window, all_NF_coords, LINE_WIDTH_PIX, FIX_COLOR, [xCenter-xCenter/4 yCenter], 2);
+                    Screen('FillRect', window, NF_color_left, NF_bar_left);    
+                    Screen('FillRect', window, NF_color_right, NF_bar_right);
+                end
+                
+                % Flip to the screen
+                vbl = Screen('Flip', window, vbl + (WAIT_FRAMES - 0.5) * ifi);
             end
             %----------------------------------------------------------------------
 
@@ -1023,7 +1134,7 @@ try
         
         % collect raw data for an added amount of time to avoid
         % edge-effects with offline filtering
-        if block == 4 | firstPress(KbName('ESCAPE'))
+        if block == 5 | firstPress(KbName('ESCAPE'))
             Screen('TextSize', window, 36); 
             DrawFormattedText(window, 'The experiment is over\n\n\nThe experimenter should be with you shortly' ,...
             'center', 'center', white );
@@ -1034,7 +1145,7 @@ try
 
                 %------------ Save Data -----------%
                 nrow = size(temp_data,2);
-                raw_info = [id age sex hand year month day hour minute seconds 99 task 99 cue_loc_idx iti trial_stage iteration];
+                raw_info = [id age sex hand year month day hour minute seconds feedback task 99 99 cue_loc_idx iti trial_stage iteration];
                 raw_info_mat = repmat(raw_info, nrow, 1);
 
                 raw_eeg_mat = [ts.' temp_data.'];
@@ -1047,8 +1158,8 @@ try
         end
         
         % write response matrix to csv
-        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_p%i_raw_%s_block_%i.csv', feedback_str, id, task_str, block), raw_mat);
-        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/%s_p%i_pwr_%s_block_%i.csv', feedback_str, id, task_str, block), pwr_mat);
+        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/raw_%s_p%i_%s_block_%i.csv', feedback_str, id, task_str, block), raw_mat);
+        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/pres_%s_p%i_%s_block_%i.csv', feedback_str, id, task_str, block), pres_mat);
 
     end
     
