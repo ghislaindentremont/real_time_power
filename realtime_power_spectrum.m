@@ -21,12 +21,12 @@ DATA_POINTS = MV_AVG_LENGTH * sampling_rate;
 PSD_FREQS = 13:1:30; 
 
 % FIGURE OUT MAPPINGS
-CHANNELS_OF_INTEREST = [8, 12]; % C3 = Ch8; C4 = Ch12
+CHANNELS_OF_INTEREST = [1:14]; % C3 = Ch8; C4 = Ch12
 
 data_buffer = zeros(length(CHANNELS_OF_INTEREST), DATA_POINTS); %pre-allocate data
 
 % what display?
-power = true;
+power = false;
 
 % what hand
 hand_right = true;
@@ -54,7 +54,7 @@ disp('Now receiving data...');
 plot_fig = true;
 
 close all;
-figure('MenuBar', 'none', 'WindowStyle', 'modal');
+figure('MenuBar', 'none', 'WindowStyle', 'modal','units','normalized','outerposition',[0 0 1 1])
 if power
     b = barh(1e1); 
     axis([-20 20 .9 1.1]);

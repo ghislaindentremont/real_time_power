@@ -173,9 +173,10 @@ try
     % set escape
     KbName('UnifyKeyNames');
     escapeKey = KbName('ESCAPE');
+    pauseKey = KbName('p');
 
     keysOfInterest=zeros(1,256);
-    keysOfInterest(KbName({'ESCAPE'}))=1;
+    keysOfInterest(KbName({'ESCAPE', 'p'}))=1;
     KbQueueCreate(-1, keysOfInterest);
     % start 'escape' Queue
     KbQueueStart;
@@ -288,7 +289,7 @@ try
     % Fixation interval time in seconds and frames
     FIX_TIME = 2;
     fix_time_frames = round(FIX_TIME / ifi / WAIT_FRAMES);
-
+   
     % Cue interval time in seconds and frames 
     CUE_TIME = 1.25;
     cue_time_frames = round(CUE_TIME / ifi/ WAIT_FRAMES);
@@ -399,6 +400,68 @@ try
                 break
             end
         end
+        
+        %------------------- Visualizing Raw Waveforms ------------------------
+        CHANNELS = [1:14];
+        
+        DISPLAY_LENGTH = 10;
+        display_points = round(DISPLAY_LENGTH * FS);
+        display_buffer = zeros(length(CHANNELS), display_points); %pre-allocate data
+        
+        close all;
+        figure('MenuBar', 'none', 'WindowStyle', 'modal','units','normalized','outerposition',[0 0 1 1]);
+        i = 0;
+        for ch = CHANNELS;
+            i = i+1;
+            ax(i) = subplot(length(CHANNELS),1,i);
+
+            set(ax(i), 'xlim', [0 display_points/FS], 'ylim', [-100 100]);
+            ax(i).YLabel.String =  sprintf('Ch%i', ch);
+            ax(i).XLabel.String =  'Time (s)';
+            lines(i) = line('Parent', ax(i));
+        end;
+
+        % Create xlabel
+        time = (0:display_points-1)/FS;
+
+        % call plots early
+        i = 0;
+        for ch = CHANNELS;
+            i = i+1;
+            set(lines(i), 'XData', time, 'YData', zeros(1, display_points));
+        end;
+        
+        %------------------- Block Instruction Message ------------------------
+        Screen('TextSize', window, 36); 
+        DrawFormattedText(window, 'We are ensuring the quality of the recording.\n\nPlease stay still and wait for the experimenter.',...
+            'center', 'center', white );
+        Screen('Flip', window);
+        %----------------------------------------------------------------------
+
+        while ~KbCheck
+
+            [temp_data, ts] = inlet.pull_chunk();
+
+            new_points = temp_data(CHANNELS, :);
+            new_length = size(new_points,2);
+
+            display_buffer(:,1:display_points-new_length) = display_buffer(:,new_length+1:end);
+            display_buffer(:,display_points-new_length+1:end) = new_points;
+            detrend_buffer = detrend(display_buffer.');
+ 
+            j = j + 1;
+            plot_fig = false;
+
+            plot_start = toc;
+            i = 0;
+            for ch = CHANNELS;
+                i = i+1;
+                set(lines(i), 'YData', detrend_buffer(:,i).')
+            end
+
+            drawnow;
+        end
+        %------------------- Visualizing Raw Waveforms ------------------------
         
         num_trials_in_this_block = num_trials;
         
@@ -536,11 +599,20 @@ try
               
         for trial = 1:num_trials_in_this_block
             
-            % check if escape key has been pressed. If so, exit experiment 
+            % check if escape key has been pressed. If so, exit experiment
+            % (by breaking out of a few loops)
+            % otherwise if pause key, then we wait until a response to keep
+            % going
             [pressed, firstPress]=KbQueueCheck; 
             if pressed
                 if firstPress(KbName('ESCAPE'))
                     break
+                elseif firstPress(KbName('p'))
+                    Screen('TextSize', window, 36); 
+                    DrawFormattedText(window, 'You''ve requested a break. Take one.\n\n\nPress Any Key To Continue',...
+                        'center', 'center', white );
+                    Screen('Flip', window);
+                    KbStrokeWait; 
                 end
             end
 
@@ -845,10 +917,15 @@ try
             
             power_rest = mean(power_rest_list);
             power_rest_window = [power_rest_window  power_rest];
-            
+             
             base_buffer2 = base_buffer(CHANNELS_OF_INTEREST, :).';
             base_buffer3 = filter(b,a, base_buffer2);  % butterworth
-            base_buffer4 = base_buffer3((end-FS*FIX_TIME+1):end, :);
+            if size(base_buffer3, 1) < FS*FIX_TIME
+                base_buffer4 = base_buffer3((end-size(base_buffer3, 1)+1):end, :);
+                disp('Baseline Buffer Shortage')
+            else
+                base_buffer4 = base_buffer3((end-FS*FIX_TIME+1):end, :);
+            end
             base_power_buffer = base_buffer4.^2;
             base_power = mean(mean(base_power_buffer));
             base_power_window = [base_power_window base_power];
@@ -1067,7 +1144,12 @@ try
                 
                 NF_buffer2 = NF_buffer(CHANNELS_OF_INTEREST, :).';
                 NF_buffer3 = filter(b,a, NF_buffer2);  % butterworth
-                NF_buffer4 = NF_buffer3((end-FS*NF_TIME+1):end, :);
+                if size(NF_buffer3, 1) < FS*NF_TIME
+                    NF_buffer4 = NF_buffer3((end-size(NF_buffer3, 1)+1):end, :);
+                    disp('NF Buffer Shortage')
+                else
+                    NF_buffer4 = NF_buffer3((end-FS*NF_TIME+1):end, :);
+                end
                 NF_power_buffer = NF_buffer4.^2;
                 
                 [LI, log_ERS_ipsi, log_ERS_contra] = get_LI(cue_loc, NF_power_buffer,  power_rest_mavg);
