@@ -3,6 +3,10 @@ sca;
 close all;
 clearvars;
 
+%---------- Fake Data -----------------
+fake_data = true;
+%---------- Fake Data -----------------
+
 try 
 
     % Here we call some default settings for setting up Psychtoolbox
@@ -59,7 +63,7 @@ try
     num_lines = 1;
     dems = inputdlg(prompt,dlg_title,num_lines);
     
-    if strcmp(char(dems(1)), 'test')
+    if strcmp(char(dems(1)), 'test') || fake_data
         
         disp('id, age, sex, and hand are overwritten in test mode')
             
@@ -128,7 +132,7 @@ try
             sex = 1;
         elseif (strcmp(sex, 'f') == 1)
             sex = 2;
-        else
+        else     
             disp('ERROR: sex');  % should also get and error when putting in response matrix
         end
 
@@ -181,7 +185,48 @@ try
     % start 'escape' Queue
     KbQueueStart;
 
+    
 
+    %----------------------------------------------------------------------
+    %                          Fake Data 
+    %----------------------------------------------------------------------
+
+    w = 23;
+    amplitude_rest = 10;
+    amplitude_NF_right_hem = 5;
+    amplitude_NF_left_hem = 2;
+    intercept = 4000;
+    noise = 0;
+    
+    % length of half trial 
+    time = 10;
+
+    w_line = 60;
+    line_noise = 10;
+
+    FS_fake = 128;
+
+    x = 0:(1/FS_fake):time;
+
+    y1 = intercept + amplitude_rest * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
+
+    % add negative deflection for last 5 seconds
+    y2_right_hem = intercept + amplitude_NF_right_hem * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
+    y2_left_hem = intercept + amplitude_NF_left_hem * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
+
+    y_right_hem = [y1 y2_right_hem];
+    y_left_hem = [y1 y2_left_hem];
+    
+    plot([x, x+10+1/FS_fake], y_right_hem, ':', 'color', [1 0 0])
+    xlabel('Time (s)')
+    ylabel('Simulated Signal (uV)')
+    hold on;
+    plot([x, x+10+1/FS_fake], y_left_hem, ':', 'color', [0 1 0])
+    legend('Right Hemisphere', 'Left Hemisphere')
+    drawnow;
+    
+    
+    
     %----------------------------------------------------------------------
     %                       Fixation Cross 
     %----------------------------------------------------------------------
@@ -311,7 +356,7 @@ try
     cue_locs_list = {'left', 'right'};
     cue_locs = [1, 2];
     
-    NUM_PRACTICE_TRIALS = 5;
+    NUM_PRACTICE_TRIALS = 1;
 
     TRIALS_PER_CONDITION = 30;
     cond_matrix = repmat(cue_locs, 1, TRIALS_PER_CONDITION);
@@ -349,7 +394,7 @@ try
 
     % make sure that everything is on the path and LSL is loaded
     addpath(genpath('liblsl-Matlab'))
-    
+
     disp('Loading the library...');
     lib = lsl_loadlib();
 
@@ -402,64 +447,68 @@ try
         end
         
         %------------------- Visualizing Raw Waveforms ------------------------
-        CHANNELS = [1:14];
-        
-        DISPLAY_LENGTH = 10;
-        display_points = round(DISPLAY_LENGTH * FS);
-        display_buffer = zeros(length(CHANNELS), display_points); %pre-allocate data
-        
-        close all;
-        figure('MenuBar', 'none', 'WindowStyle', 'modal','units','normalized','outerposition',[0 0 1 1]);
-        i = 0;
-        for ch = CHANNELS;
-            i = i+1;
-            ax(i) = subplot(length(CHANNELS),1,i);
+        if ~fake_data
+            try
+                CHANNELS = [1:14];
 
-            set(ax(i), 'xlim', [0 display_points/FS], 'ylim', [-100 100]);
-            ax(i).YLabel.String =  sprintf('Ch%i', ch);
-            ax(i).XLabel.String =  'Time (s)';
-            lines(i) = line('Parent', ax(i));
-        end;
+                DISPLAY_LENGTH = 10;
+                display_points = round(DISPLAY_LENGTH * FS);
+                display_buffer = zeros(length(CHANNELS), display_points); %pre-allocate data
 
-        % Create xlabel
-        time = (0:display_points-1)/FS;
+                close all;
+                figure('MenuBar', 'none', 'WindowStyle', 'modal','units','normalized','outerposition',[0 0 1 1]);
+                i = 0;
+                for ch = CHANNELS;
+                    i = i+1;
+                    ax(i) = subplot(length(CHANNELS),1,i);
 
-        % call plots early
-        i = 0;
-        for ch = CHANNELS;
-            i = i+1;
-            set(lines(i), 'XData', time, 'YData', zeros(1, display_points));
-        end;
-        
-        %------------------- Block Instruction Message ------------------------
-        Screen('TextSize', window, 36); 
-        DrawFormattedText(window, 'We are ensuring the quality of the recording.\n\nPlease stay still and wait for the experimenter.',...
-            'center', 'center', white );
-        Screen('Flip', window);
-        %----------------------------------------------------------------------
+                    set(ax(i), 'xlim', [0 display_points/FS], 'ylim', [-100 100]);
+                    ax(i).YLabel.String =  sprintf('Ch%i', ch);
+                    ax(i).XLabel.String =  'Time (s)';
+                    lines(i) = line('Parent', ax(i));
+                end;
 
-        while ~KbCheck
+                % Create xlabel
+                time = (0:display_points-1)/FS;
 
-            [temp_data, ts] = inlet.pull_chunk();
+                % call plots early
+                i = 0;
+                for ch = CHANNELS;
+                    i = i+1;
+                    set(lines(i), 'XData', time, 'YData', zeros(1, display_points));
+                end;
 
-            new_points = temp_data(CHANNELS, :);
-            new_length = size(new_points,2);
+                %------------------- Block Instruction Message ------------------------
+                Screen('TextSize', window, 36); 
+                DrawFormattedText(window, 'We are ensuring the quality of the recording.\n\nPlease stay still and wait for the experimenter.',...
+                    'center', 'center', white );
+                Screen('Flip', window);
+                %----------------------------------------------------------------------
+            
+                while ~KbCheck
+                    [temp_data, ts] = inlet.pull_chunk();
 
-            display_buffer(:,1:display_points-new_length) = display_buffer(:,new_length+1:end);
-            display_buffer(:,display_points-new_length+1:end) = new_points;
-            detrend_buffer = detrend(display_buffer.');
- 
-            j = j + 1;
-            plot_fig = false;
+                    new_points = temp_data(CHANNELS, :);
+                    new_length = size(new_points,2);
 
-            plot_start = toc;
-            i = 0;
-            for ch = CHANNELS;
-                i = i+1;
-                set(lines(i), 'YData', detrend_buffer(:,i).')
+                    display_buffer(:,1:display_points-new_length) = display_buffer(:,new_length+1:end);
+                    display_buffer(:,display_points-new_length+1:end) = new_points;
+                    detrend_buffer = detrend(display_buffer.');
+
+                    j = j + 1;
+                    plot_fig = false;
+
+                    plot_start = toc;
+                    i = 0;
+                    for ch = CHANNELS;
+                        i = i+1;
+                        set(lines(i), 'YData', detrend_buffer(:,i).')
+                    end
+                    drawnow;
+                end
+            catch
+                disp('MSG: early screen exit');
             end
-
-            drawnow;
         end
         %------------------- Visualizing Raw Waveforms ------------------------
         
@@ -483,7 +532,7 @@ try
 
                 %------------------- Block Instruction Message ------------------------
                 Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Any Key To Move On',...
+                DrawFormattedText(window, 'Motor Imagery: You will imagine moving\nthe hand indicated by the arrow in each trial\nwithout actually moving that hand.\n\n\nPress Spacebar To Move On',...
                     'center', 'center', white );
                 Screen('Flip', window);
                 KbStrokeWait; 
@@ -493,7 +542,7 @@ try
                     
                     %------------------- Block Instruction Message ------------------------
                     Screen('TextSize', window, 36); 
-                    DrawFormattedText(window, 'Continuous Feedback: During the motor imagery portion\nof each trial you will be presented\nwith continous feedback regarding your performance.\n\nThe feedback will be displayed in the form of\ntwo continously changing vertical bars.\n\nYour goal will be to increase the bar\non the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Move On',...
+                    DrawFormattedText(window, 'Continuous Feedback: During the motor imagery portion\nof each trial you will be presented\nwith continous feedback regarding your performance.\n\nThe feedback will be displayed in the form of\ntwo continously changing vertical bars.\n\nYour goal will be to increase the bar\non the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Spacebar To Move On',...
                         'center', 'center', white );
                     Screen('Flip', window);
                     KbStrokeWait; 
@@ -503,7 +552,7 @@ try
                     
                     %------------------- Block Instruction Message ------------------------
                     Screen('TextSize', window, 36); 
-                    DrawFormattedText(window, 'Intermittent Feedback: During the motor imagery portion\nof each trial you will be presented\nwith intermittent feedback\nat the end of each trial regarding your performance.\n\nThe feedback will be displayed in the form of two vertical bars.\n\nYour goal, across trials, will be to increase\nthe bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Move On',...
+                    DrawFormattedText(window, 'Intermittent Feedback: During the motor imagery portion\nof each trial you will be presented\nwith intermittent feedback\nat the end of each trial regarding your performance.\n\nThe feedback will be displayed in the form of two vertical bars.\n\nYour goal, across trials, will be to increase\nthe bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Spacebar To Move On',...
                         'center', 'center', white );
                     Screen('Flip', window);
                     KbStrokeWait; 
@@ -517,7 +566,7 @@ try
 
                 %------------------- Block Instruction Message ------------------------
                 Screen('TextSize', window, 36); 
-                DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Any Key To Move On',...
+                DrawFormattedText(window, 'Motor Execution: You will move\nthe hand indicated by the arrow in each trial.\n\n\nPress Spacebar To Move On',...
                     'center', 'center', white );
                 Screen('Flip', window);
                 KbStrokeWait; 
@@ -527,7 +576,7 @@ try
                     
                     %------------------- Block Instruction Message ------------------------
                     Screen('TextSize', window, 36); 
-                    DrawFormattedText(window, 'Continuous Feedback: During the motor execution portion\nof each trial you will be presented\nwith continous feedback regarding your performance.\n\nThe feedback will be displayed in the form of\ntwo continously changing vertical bars.\n\nYour goal will be to increase the bar\non the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Move On',...
+                    DrawFormattedText(window, 'Continuous Feedback: During the motor execution portion\nof each trial you will be presented\nwith continous feedback regarding your performance.\n\nThe feedback will be displayed in the form of\ntwo continously changing vertical bars.\n\nYour goal will be to increase the bar\non the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Spacebar To Move On',...
                         'center', 'center', white );
                     Screen('Flip', window);
                     KbStrokeWait; 
@@ -537,7 +586,7 @@ try
                     
                     %------------------- Block Instruction Message ------------------------
                     Screen('TextSize', window, 36); 
-                    DrawFormattedText(window, 'Intermittent Feedback: During the motor execution portion\nof each trial you will be presented\nwith intermittent feedback\nat the end of each trial regarding your performance.\n\nThe feedback will be displayed in the form of two vertical bars.\n\nYour goal, across trials, will be to increase\nthe bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Any Key To Move On',...
+                    DrawFormattedText(window, 'Intermittent Feedback: During the motor execution portion\nof each trial you will be presented\nwith intermittent feedback\nat the end of each trial regarding your performance.\n\nThe feedback will be displayed in the form of two vertical bars.\n\nYour goal, across trials, will be to increase\nthe bar on the side that the arrow pointed\nwhile keeping the other bar near zero.\n\n\nPress Spacebar To Move On',...
                         'center', 'center', white );
                     Screen('Flip', window);
                     KbStrokeWait; 
@@ -553,7 +602,7 @@ try
             
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'This block is intended to familiarize you\nwith the procedure and stimuli.\n\nTherefore, the feedback will be random.\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'This block is intended to familiarize you\nwith the procedure and stimuli.\n\nTherefore, the feedback will be random.\n\n\nPress Spacebar To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -562,7 +611,7 @@ try
         elseif block == 2
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'This is the first of four experimental blocks.\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'This is the first of four experimental blocks.\n\n\nPress Spacebar To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -570,7 +619,7 @@ try
         elseif block == 3
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'This is the second of four experimental blocks.\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'This is the second of four experimental blocks.\n\n\nPress Spacebar To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -578,7 +627,7 @@ try
         elseif block == 4
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'This is the third of four experimental blocks.\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'This is the third of four experimental blocks.\n\n\nPress Spacebar To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -586,7 +635,7 @@ try
         elseif block == 5
             %------------------- Block Instruction Message ------------------------
             Screen('TextSize', window, 36); 
-            DrawFormattedText(window, 'This is the fourth and final experimental block.\n\n\nPress Any Key To Begin the Block',...
+            DrawFormattedText(window, 'This is the fourth and final experimental block.\n\n\nPress Spacebar To Begin the Block',...
                 'center', 'center', white );
             Screen('Flip', window);
             KbStrokeWait; 
@@ -609,7 +658,7 @@ try
                     break
                 elseif firstPress(KbName('p'))
                     Screen('TextSize', window, 36); 
-                    DrawFormattedText(window, 'You''ve requested a break. Take one.\n\n\nPress Any Key To Continue',...
+                    DrawFormattedText(window, 'You''ve requested a break. Take one.\n\n\nPress Spacebar To Continue',...
                         'center', 'center', white );
                     Screen('Flip', window);
                     KbStrokeWait; 
@@ -618,7 +667,7 @@ try
 
 %             -------------------Trial Initiation message --------------------------
 %             Screen('TextSize', window, 36); 
-%             DrawFormattedText(window, 'Press Any Key To Begin the
+%             DrawFormattedText(window, 'Press Spacebar To Begin the
 %             Trial',...
 %                 'center', 'center', white );
 %             Screen('Flip', window);
@@ -632,8 +681,23 @@ try
             iti = cond_matrix_shuffled(2,trial);
             iti_time_frames = round(iti / ifi / WAIT_FRAMES);
 
-            % warm up data buffer 
             [temp_data, ts] = inlet.pull_chunk();
+            
+            if fake_data
+                fake_idx = 1;
+                fake_extra = size(temp_data,2);
+                
+                if (fake_extra+fake_idx-1) > length(y1)
+                    fake_idx=1;
+                    fake_extra=1;
+                    ts = ts(end);
+                end
+                
+                fake_temp_data = y1(fake_idx:(fake_idx+fake_extra-1));
+                temp_data = repmat(fake_temp_data, 14 ,1);
+                
+                fake_idx = fake_idx+fake_extra;
+            end
             
             % initiate baseline buffer
             base_buffer = zeros([size(temp_data, 1) 1]);
@@ -681,6 +745,21 @@ try
                 % warm up data buffer 
                 [temp_data, ts] = inlet.pull_chunk();
                 
+                if fake_data
+                    fake_extra = size(temp_data,2);
+                    
+                    if (fake_extra+fake_idx-1) > length(y1)
+                        fake_idx=1;
+                        fake_extra=1;
+                        ts = ts(end);
+                    end
+
+                    fake_temp_data = y1(fake_idx:(fake_idx+fake_extra-1));
+                    temp_data = repmat(fake_temp_data, 14 ,1);
+
+                    fake_idx = fake_idx+fake_extra;
+                end
+                
                 % add temp data to baseline buffer
                 base_buffer = [base_buffer temp_data];
 
@@ -720,6 +799,21 @@ try
 
             [temp_data, ts] = inlet.pull_chunk();
             
+            if fake_data
+                fake_extra = size(temp_data,2);
+                
+                if (fake_extra+fake_idx-1) > length(y1)
+                    fake_idx=1;
+                    fake_extra=1;
+                    ts = ts(end);
+                end
+
+                fake_temp_data = y1(fake_idx:(fake_idx+fake_extra-1));
+                temp_data = repmat(fake_temp_data, 14 ,1);
+
+                fake_idx = fake_idx+fake_extra;
+            end
+            
             % add temp data to baseline buffer
             base_buffer = [base_buffer temp_data];
             
@@ -758,6 +852,21 @@ try
             for frame = 1:fix_time_frames-1
 
                 [temp_data, ts] = inlet.pull_chunk();
+                
+                if fake_data
+                    fake_extra = size(temp_data,2);
+
+                    if (fake_extra+fake_idx-1) > length(y1)
+                        fake_idx=1;
+                        fake_extra=1;
+                        ts = ts(end);
+                    end
+                    
+                    fake_temp_data = y1(fake_idx:(fake_idx+fake_extra-1));
+                    temp_data = repmat(fake_temp_data, 14 ,1);
+
+                    fake_idx = fake_idx+fake_extra;
+                end
                 
                 % add temp data to baseline buffer
                 base_buffer = [base_buffer temp_data];
@@ -811,6 +920,23 @@ try
 
             [temp_data, ts] = inlet.pull_chunk();
             
+            if fake_data
+                fake_idx = 1;
+                fake_extra = size(temp_data,2);
+                
+                if (fake_extra+fake_idx-1) > length(y2_left_hem)
+                    fake_idx=1;
+                    fake_extra=1;
+                    ts = ts(end);
+                end
+
+                fake_temp_data = y2_left_hem(fake_idx:(fake_idx+fake_extra-1));
+                temp_data = repmat(fake_temp_data, 14 ,1);
+                temp_data(CHANNELS_OF_INTEREST(end), :) = y2_right_hem(fake_idx:(fake_idx+fake_extra-1));
+
+                fake_idx = fake_idx+fake_extra;
+            end
+            
             % initiate baseline buffer
             NF_buffer = zeros([size(temp_data, 1) 1]);
 
@@ -850,6 +976,22 @@ try
             for frame = 1:cue_time_frames-1
 
                 [temp_data, ts] = inlet.pull_chunk();
+                
+                if fake_data
+                    fake_extra = size(temp_data,2);
+                    
+                    if (fake_extra+fake_idx-1) > length(y2_left_hem)
+                        fake_idx=1;
+                        fake_extra=1;
+                        ts = ts(end);
+                    end
+
+                    fake_temp_data = y2_left_hem(fake_idx:(fake_idx+fake_extra-1));
+                    temp_data = repmat(fake_temp_data, 14 ,1);
+                    temp_data(CHANNELS_OF_INTEREST(end), :) = y2_right_hem(fake_idx:(fake_idx+fake_extra-1));
+
+                    fake_idx = fake_idx+fake_extra;
+                end
 
                 NF_buffer = [NF_buffer temp_data];
                 
@@ -893,6 +1035,22 @@ try
             
             
             [temp_data, ts] = inlet.pull_chunk();
+            
+            if fake_data
+                fake_extra = size(temp_data,2);
+                
+                if (fake_extra+fake_idx-1) > length(y2_left_hem)
+                    fake_idx=1;
+                    fake_extra=1;
+                    ts = ts(end);
+                end
+
+                fake_temp_data = y2_left_hem(fake_idx:(fake_idx+fake_extra-1));
+                temp_data = repmat(fake_temp_data, 14 ,1);
+                temp_data(CHANNELS_OF_INTEREST(end), :) = y2_right_hem(fake_idx:(fake_idx+fake_extra-1));
+
+                fake_idx = fake_idx+fake_extra;
+            end
             
             NF_buffer = [NF_buffer temp_data];
 
@@ -1000,6 +1158,22 @@ try
             for frame = 1:NF_time_frames-1
 
                 [temp_data, ts] = inlet.pull_chunk();
+                
+                if fake_data
+                    fake_extra = size(temp_data,2);
+                    
+                    if (fake_extra+fake_idx-1) > length(y2_left_hem)
+                        fake_idx=1;
+                        fake_extra=1;
+                        ts = ts(end);
+                    end
+
+                    fake_temp_data = y2_left_hem(fake_idx:(fake_idx+fake_extra-1));
+                    temp_data = repmat(fake_temp_data, 14 ,1);
+                    temp_data(CHANNELS_OF_INTEREST(end), :) = y2_right_hem(fake_idx:(fake_idx+fake_extra-1));
+
+                    fake_idx = fake_idx+fake_extra;
+                end
                 
                 NF_buffer = [NF_buffer temp_data];
 
@@ -1240,9 +1414,14 @@ try
         end
         
         % write response matrix to csv
-        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/raw_%s_p%i_%s_block_%i.csv', feedback_str, id, task_str, block), raw_mat);
-        csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/pres_%s_p%i_%s_block_%i.csv', feedback_str, id, task_str, block), pres_mat);
-
+        
+        if fake_data
+            csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/fakedata_raw_%s_p%i_%s_block_%i.csv', feedback_str, id, task_str, block), raw_mat);
+            csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/fakedata_pres_%s_p%i_%s_block_%i.csv', feedback_str, id, task_str, block), pres_mat);
+        else
+            csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/raw_%s_p%i_%s_block_%i.csv', feedback_str, id, task_str, block), raw_mat);
+            csvwrite(sprintf('C:/Users/Kine Research/Documents/MATLAB/ghis_data/pres_%s_p%i_%s_block_%i.csv', feedback_str, id, task_str, block), pres_mat);
+        end
     end
     
     % turn off screen
