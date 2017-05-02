@@ -20,11 +20,11 @@ library(bspec)
 ##### We start with the raw data.
 
 ```{r message=FALSE}
-setwd("/Volumes/LaCie/Experiments/NF_data/Piloting")
+setwd("/Volumes/LaCie/Experiments/NF_data/Piloting/chelsey_pilot")
 
 raw = map_df(
   .x = list.files(
-    pattern = "C_p99_raw"
+    pattern = "raw"
   )
   , .f = function(file) {
     read_csv(
