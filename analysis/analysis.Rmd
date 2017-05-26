@@ -6,7 +6,7 @@ output: html_document
 
 # Data Processing
 
-## Load Packages 
+### Load Packages 
 
 ```{r message=FALSE, echo=FALSE}
 library(signal)
@@ -15,14 +15,14 @@ library(rstan)
 library(bspec)
 ```
 
-## Load and Tidy Data
+### Load and Tidy Data
 
-```{r message=FALSE, echo=FALSE}
-setwd("/Volumes/LaCie/Experiments/NF_data/Piloting")
+```{r message=FALSE}
+setwd("/Volumes/LaCie/Experiments/NF_data/Piloting/chelsey_pilot")
 
 raw = map_df(
   .x = list.files(
-    pattern = "p99_raw"
+    pattern = "raw"
   )
   , .f = function(file) {
     read_csv(
@@ -32,25 +32,38 @@ raw = map_df(
   }
 )
 
-names(raw) = c('id', 'age', 'sex', 'hand', 'year', 'month', 'day', 'hour', 'minute', 'seconds', 'block' , 'block_cond', 'trial', 'cue_loc', 'iti', 'trial_stage', 'iteration', 'time', 'Ch1', 'Ch2', 'Ch3', 'Ch4', 'Ch5', 'Ch6', 'Ch7', 'Ch8', 'Ch9', 'Ch10', 'Ch11', 'Ch12', 'Ch13', 'Ch14')
+# matlab mappings:
+# [id age sex hand year month day hour minute seconds feedback task block trial cue_loc_idx iti trial_stage iteration]
+
+names(raw) = c('id', 'age', 'sex', 'hand', 'year', 'month', 'day', 'hour', 'minute', 'seconds', 'feedback', 'task', 'block', 'trial', 'cue_loc', 'iti', 'trial_stage', 'iteration', 'time', 'Ch1', 'Ch2', 'Ch3', 'Ch4', 'Ch5', 'Ch6', 'Ch7', 'Ch8', 'Ch9', 'Ch10', 'Ch11', 'Ch12', 'Ch13', 'Ch14')
 
 raw$id = factor(raw$id)
 raw$sex = factor(raw$sex, levels = c(1, 2), labels = c("male", "female"))
 raw$hand = factor(raw$hand, levels = c(1, 2), labels = c("left", "right"))
 raw$block = factor(raw$block, levels = c(1:5), labels = c("1", "2", "3", "4", "5"))
-raw$block_cond = factor(raw$block_cond, levels = c(1, 2), labels = c("MI", "ME"))
+raw$task = factor(raw$task, levels = c(1, 2), labels = c("MI", "ME"))
+raw$feedback = factor(raw$feedback, levels = c(1, 2), labels = c("C", "I"))
 raw$cue_loc = factor(raw$cue_loc, levels = c(1, 2), labels = c("left", "right"))
-raw$trial_stage = factor(raw$trial_stage, levels = c(1:4), labels = c("iti", "fixation", "cue", "NF"))
+raw$trial_stage = factor(raw$trial_stage, levels = c(1:5), labels = c("iti", "fixation", "cue", "NF", "inter"))
+
+# summary(raw)
 
 raw_long = raw %>%
   gather(channel, signal, Ch1:Ch14, factor_key = TRUE)
+
+summary(raw_long)
+
+# delete original df
+rm(raw)
 ```
 
-##### Add adjusted time column that starts at zero for each trial for epochs later. We will be using estimated time based on the EEG system's sampling frequency (128 Hz). Therefore, we confirm that the estimated and actual timestamps don't differ substantially. Indeed, the timestamps are accurate to within 10 ms. 
+##### Time Stamps
+
+Add adjusted time column that starts at zero for each trial for epochs later. We will be using estimated time based on the EEG system's sampling frequency (128 Hz). Therefore, we confirm that the estimated and actual timestamps don't differ substantially. Indeed, the timestamps are accurate to within 10 ms. 
 
 ```{r, echo=FALSE}
 raw_long = raw_long %>%
-  group_by(block_cond, block, trial, trial_stage, channel) %>%
+  group_by(task, block, trial, trial_stage, channel) %>%
   mutate(
     time_adj = time - min(time)
     , time_est = seq(0, (1/128)*(length(id)-1), by = 1/128)
@@ -59,18 +72,18 @@ raw_long = raw_long %>%
 range(raw_long$time_est - raw_long$time_adj)
 ```
 
-##### Acknowledge timing issue: there appears to be a time lag in the latter half of each block, specifically in the cue presentation trial stages. I'm unsure as to why right now. It is very consistent, so it may be a systematic error in the code. Specifically, the time seems to double...  
+##### Trial Stage Timing
 
 ```{r, echo=FALSE}
 raw_long %>%
-  group_by(block_cond, block, trial, trial_stage) %>%
+  group_by(task, block, trial, trial_stage) %>%
   summarize(max_time = max(time_est)) %>%
   filter(block != "1", trial_stage != "iti") %>%
   mutate(exp_time = (as.numeric(block) - 2) * 60 + as.numeric(trial)) %>%
-  group_by(block_cond, exp_time, trial_stage) %>%
+  group_by(task, exp_time, trial_stage) %>%
   ggplot()+
     geom_point(aes(x=exp_time, y=max_time))+
-    facet_grid(block_cond~trial_stage)+
+    facet_grid(task~trial_stage)+
     ylab("Time of Trial Stage (s)")+
     xlab("Experiment Time (Trials)")
 ```
@@ -78,12 +91,24 @@ raw_long %>%
 ##### Filter data
 
 ```{r, echo=FALSE}
-bu2 = butter(6, c(13,30)/(128/2), type = 'pass')
+bu = butter(6, c(13,30)/(128/2), type = 'pass')
 
 filtered = raw_long %>%
-  group_by(block_cond, channel) %>%
-  mutate(butter_filtered = signal::filter(bu2, signal)) %>%
-  mutate(power = as.numeric(butter_filtered)^2)
+  group_by(task, channel) %>%
+  mutate(butter_filtered = signal::filtfilt(bu, signal)) %>%
+  mutate(signal_squared = butter_filtered^2)
+
+filtered %>%
+  dplyr::filter(block == 2, trial <= 5) %>%
+  ggplot(aes(y = butter_filtered, x = time))+
+    geom_line()+
+    facet_grid(channel ~task, scales = "free")+
+    ggtitle("Partial Filtered Experiment Data")+
+    xlab("Time (s)")+
+    ylab("Signal (uV)")
+
+# remove long format df
+rm(raw_long)
 ```
 
 ##### Get rid of practice block
@@ -106,18 +131,17 @@ filtered = filtered %>%
   ) 
 ```
 
-
 # ERD Timecourses
 
-## (Log of Average/Average of log of Power) over Moving Average Baseline
+### Moving Average Baseline
 
-##### Get moving average baseline. For now, I use make a window of size 1, and therefore get a different baseline for each trial. This actually ensures that the ERDs are relative to zero. 
+I use make a window of size 1, and therefore get a different baseline for each trial. This actually ensures that the ERDs are relative to zero. 
 
 ```{r, echo=FALSE}
 baselines = filtered %>%
   dplyr::filter(trial_stage == "fixation") %>%
-  group_by(block_cond, block, trial) %>%
-  summarize(baseline = mean(power))
+  group_by(task, block, trial) %>%
+  summarize(baseline = mean(signal_squared))
 
 # baselines = baselines %>%
 #   filter(!is.na(baseline))
@@ -143,133 +167,110 @@ for (i in 1:nrow(baselines)) {
   mavgs = c(mavgs, mavg)
 }
 
-mavgs_tibb = tibble(block_cond = baselines$block_cond,  block = baselines$block, trial = baselines$trial, mavg = mavgs)
+mavgs_tibb = tibble(task = baselines$task,  block = baselines$block, trial = baselines$trial, mavg = mavgs)
+
+# look for outliying baseline trials
+cutoff = 50
+mavgs_tibb %>%
+  ggplot()+
+    geom_histogram(aes(x=mavgs), bins = 1000)+
+    geom_vline(xintercept = cutoff, linetype = "dotted", color = "red")
+
+# identify them 
+mavgs_tibb %>%
+  mutate(
+    exclude = ifelse(mavg >= cutoff, TRUE, FALSE)
+    ) -> mavgs_tibb
+
+# examine them
+mavgs_tibb %>%
+  filter(exclude)
 ```
 
-##### Get relative power
+### Get relative power
+
+We exclude trials for which the baselines were bad. We then examine the distribution of relative power and log relative power. First, it seems as though the continuous values of log relative power are not normally distributed. They are skewed to the left. Second, the distibution of relative power is skewed to the right. There is quite an extrordinary range of relative power values. From virtually zero to 4000.
+
+Currently, we make no exclusions based on relative power or log relative power.
 
 ```{r, echo=FALSE}
 for_ERD = filtered %>%
   dplyr::filter(trial_stage != "iti") %>%
-  group_by(block_cond, block, trial, laterality) %>%
+  group_by(task, block, trial, laterality) %>%
   mutate(
   time_est_ERD = seq(0, (1/128)*(length(id)-1), by = 1/128)
   ) %>%
   left_join(mavgs_tibb) %>%
+  filter(exclude == FALSE) %>%
   mutate(
-    relative_power = (power/mavg)
+    relative_power = (signal_squared/mavg)
     , log_relative_power = log(relative_power)
   )
+
+# look for outlying log relative power values
+for_ERD %>%
+  ggplot()+
+    geom_histogram(aes(x=log_relative_power), bins = 1000)
+
+sort(for_ERD$log_relative_power)[c(1:10, (nrow(for_ERD)-10):nrow(for_ERD))]
+
+# look for outlying relative power values
+for_ERD %>%
+  ggplot()+
+    geom_histogram(aes(x=relative_power), bins = 1000)+
+    xlim(c(0, 20))
+
+sort(for_ERD$relative_power)[c(1:10, (nrow(for_ERD)-10):nrow(for_ERD))]
 ```
 
 ### Log of Average over Moving Average Baseline
 
+It is difficult to dicern any clear pattern from the data.
+
 ```{r, echo=FALSE}
 for_ERD %>%
-  group_by(block_cond, time_est_ERD, laterality) %>%
+  group_by(task, time_est_ERD, laterality) %>%
   summarize(avg_relative_power = mean(relative_power, na.rm = T)) %>%
-  group_by(block_cond, laterality) %>%
+  group_by(task, laterality) %>%
   mutate(sma_relative_power = stats::filter(avg_relative_power, rep(1/128, 128), sides=2)) %>%
   mutate(log_sma_relative_power = log(sma_relative_power)) %>%
   mutate(log_avg_relative_power = log(avg_relative_power)) %>%
   ggplot()+
-    geom_line(aes(x=time_est_ERD, y=log_avg_relative_power, color = laterality), alpha = 0.2)+
+    geom_line(aes(x=time_est_ERD, y=log_avg_relative_power, color = laterality), alpha = 0.3)+
     geom_line(aes(x=time_est_ERD, y=log_sma_relative_power, color = laterality))+
-    facet_grid(.~block_cond)+
+    facet_grid(.~task)+
     xlab("Trial Time (s)")+
     ylab("Log of Average Relative Power")+
-    ggtitle("All Trials") +
     geom_vline(xintercept = 2, linetype = "dashed")+
     geom_vline(xintercept = 2 + 1.25, linetype = "dashed")+
-    geom_hline(yintercept=0, linetype = "dashed")+
-    ylim(c(-1, 1))  # no avoid outlying noise at the end
-
-for_ERD %>%
-  dplyr::filter(trial <= 30) %>%
-  group_by(block_cond, time_est_ERD, laterality) %>%
-  summarize(avg_relative_power = mean(relative_power, na.rm = T)) %>%
-  group_by(block_cond, laterality) %>%
-  mutate(sma_relative_power = stats::filter(avg_relative_power, rep(1/128, 128), sides=2)) %>%
-  mutate(log_sma_relative_power = log(sma_relative_power)) %>%
-  mutate(log_avg_relative_power = log(avg_relative_power)) %>%
-  ggplot()+
-    geom_line(aes(x=time_est_ERD, y=log_avg_relative_power, color = laterality), alpha = 0.2)+
-    geom_line(aes(x=time_est_ERD, y=log_sma_relative_power, color = laterality))+
-    facet_grid(.~block_cond)+
-    xlab("Trial Time (s)")+
-    ylab("Log of Average Relative Power")+
-    ggtitle("First 30 Trials") +
-    geom_vline(xintercept = 2, linetype = "dashed")+
-    geom_vline(xintercept = 2 + 1.25, linetype = "dashed")+
-    geom_hline(yintercept=0, linetype = "dashed")+
-    ylim(c(-1, 1))  # no avoid outlying noise at the end
+    # geom_vline(xintercept = 2 + 1.25 + 5, linetype = "dashed")+
+    geom_hline(yintercept=0, linetype = "dashed")+ 
+    xlim(c(-0.25, 8.5))+
+    ylim(c(-2.5, 5))
 ```
 
-### Average of Log over Moving Average Baseline
+### Percent ERD after Averaging across Trials (Zich & Pfurtscheller)
 
-##### Taking the average of the logs spits out values centered around -2 on the y-axis. This is not ideal. I run a miniature simulation below to see how this shift may work itself out mathematically. Even if relative power over the course of the baseline period is on average 1 (as it should be because that's how baseline was defined for each trial), you can still get negative values if you take the log of each data point. 
+Average power samples across trial, get SMA and baseline, and plot % ERD... 
 
-```{r, echo=FALSE}
-for_ERD %>%
-  group_by(block_cond, time_est_ERD, laterality) %>%
-  summarize(avg_log_relative_power = mean(log_relative_power, na.rm = T)) %>%
-  group_by(block_cond, laterality) %>%
-  mutate(sma_log_relative_power = stats::filter(avg_log_relative_power, rep(1/128, 128), sides=2)) %>%
-  ggplot()+
-    geom_line(aes(x=time_est_ERD, y=avg_log_relative_power, color = laterality), alpha = 0.2)+
-    geom_line(aes(x=time_est_ERD, y=sma_log_relative_power, color = laterality))+
-    facet_grid(.~block_cond)+
-    xlab("Trial Time (s)")+
-    ylab("Average of Log of Relative Power")+
-    ggtitle("All Trials") +
-    geom_vline(xintercept = 2, linetype = "dashed")+
-    geom_vline(xintercept = 2 + 1.25, linetype = "dashed")+
-    geom_hline(yintercept=0, linetype = "dashed")+
-    ylim(c(-4, 0))
-
-for_ERD %>%
-  filter(trial <= 30) %>%
-  group_by(block_cond, time_est_ERD, laterality) %>%
-  summarize(avg_log_relative_power = mean(log_relative_power, na.rm = T)) %>%
-  group_by(block_cond, laterality) %>%
-  mutate(sma_log_relative_power = stats::filter(avg_log_relative_power, rep(1/128, 128), sides=2)) %>%
-  ggplot()+
-    geom_line(aes(x=time_est_ERD, y=avg_log_relative_power, color = laterality), alpha = 0.2)+
-    geom_line(aes(x=time_est_ERD, y=sma_log_relative_power, color = laterality))+
-    facet_grid(.~block_cond)+
-    xlab("Trial Time (s)")+
-    ylab("Average of Log of Relative Power")+
-    ggtitle("First 30 Trials") +
-    geom_vline(xintercept = 2, linetype = "dashed")+
-    geom_vline(xintercept = 2 + 1.25, linetype = "dashed")+
-    geom_hline(yintercept=0, linetype = "dashed")+
-    ylim(c(-4, 0))
-
-mean(log(runif(1000000, 1-1, 1+1)/1))
-
-mean(log(rlnorm(1000000, 0 - 1/2)/1))
-```
-
-## Percent ERD after Averaging across Trials (Zich & Pfurtscheller)
-
-##### Average power samples across trial, get SMA and baseline, and plot % ERD
+The data are even less clear here.
 
 ```{r, echo=FALSE}
 SMA = filtered %>%
   dplyr::filter(trial_stage != "iti") %>%
-  group_by(block_cond, block, trial, laterality) %>%
+  group_by(task, block, trial, laterality) %>%
   mutate(
     time_est_ERD = seq(0, (1/128)*(length(id)-1), by = 1/128)
     ) %>%
-  group_by(block_cond, time_est_ERD, laterality) %>% 
-  summarize(avg_power = mean(power)) %>%
+  group_by(task, time_est_ERD, laterality) %>% 
+  summarize(avg_power = mean(signal_squared)) %>%
   # left_join(avg_baselines) %>%
-  group_by(block_cond, laterality) %>%
+  group_by(task, laterality) %>%
   mutate(sma_power = stats::filter(avg_power, rep(1/128, 128), sides=2))
 
 SMA_baseline = SMA %>%
   dplyr::filter(0 <= time_est_ERD & time_est_ERD < 2.00) %>%
-  group_by(block_cond) %>%
+  group_by(task) %>%
   summarize(avg_baseline = mean(as.numeric(sma_power), na.rm = T))
 
 SMA %>%
@@ -279,7 +280,7 @@ SMA %>%
   ggplot()+
     geom_line(aes(x=time_est_ERD, y=percent_ERD, color = laterality), alpha = 0.2)+
     geom_line(aes(x=time_est_ERD, y=sma_percent_ERD, color = laterality))+
-    facet_grid(.~block_cond)+
+    facet_grid(.~task)+
     xlab("Trial Time (s)")+
     ylab("Percent ERD")+
     ggtitle("All Trials")+
@@ -287,68 +288,6 @@ SMA %>%
     geom_vline(xintercept = 2 + 1.25, linetype = "dashed")+
     geom_hline(yintercept=0, linetype = "dashed")+
     ylim(c(-50,50))
-
-
-SMA_30 = filtered %>%
-  dplyr::filter(trial_stage != "iti", trial <= 30) %>%
-  group_by(block_cond, block, trial, laterality) %>%
-  mutate(
-    time_est_ERD = seq(0, (1/128)*(length(id)-1), by = 1/128)
-    ) %>%
-  group_by(block_cond, time_est_ERD, laterality) %>% 
-  summarize(avg_power = mean(power)) %>%
-  # left_join(avg_baselines) %>%
-  group_by(block_cond, laterality) %>%
-  mutate(sma_power = stats::filter(avg_power, rep(1/128, 128), sides=2))
-
-SMA_baseline_30 = SMA_30 %>%
-  dplyr::filter(0 <= time_est_ERD & time_est_ERD < 2.00) %>%
-  group_by(block_cond) %>%
-  summarize(avg_baseline = mean(as.numeric(sma_power), na.rm = T))
-
-SMA_30 %>%
-  left_join(SMA_baseline_30) %>%
-  mutate(sma_percent_ERD = ((as.numeric(sma_power) - avg_baseline)/avg_baseline) * 100)%>%
-  mutate(percent_ERD = ((avg_power - avg_baseline)/avg_baseline) * 100) %>%
-  ggplot()+
-    geom_line(aes(x=time_est_ERD, y=percent_ERD, color = laterality), alpha = 0.2)+
-    geom_line(aes(x=time_est_ERD, y=sma_percent_ERD, color = laterality))+
-    facet_grid(.~block_cond)+
-    xlab("Trial Time (s)")+
-    ylab("Percent ERD")+
-    ggtitle("First 30 Trials")+
-    geom_vline(xintercept = 2, linetype = "dashed")+
-    geom_vline(xintercept = 2 + 1.25, linetype = "dashed")+
-    geom_hline(yintercept=0, linetype = "dashed")+
-    ylim(c(-50,50))
 ```
-
-# Laterality Index
-
-##### Get mean LI per trial. NOTE: the average baselines used herein are still based on single trials (i.e. 'moving average' of window of a single trial).
-
-```{r, echo=FALSE}
-LIs = filtered %>%
-  dplyr::filter(trial_stage == "NF") %>%
-  group_by(block_cond, block, trial, laterality) %>%
-  summarize(power = mean(power)) %>%
-  left_join(mavgs_tibb) %>%
-  spread(key = laterality, power) %>%
-  mutate(LI = log(ipsi/mavg) - log(contra/mavg))
-```
-
-##### Plot LI as a function of experiment time
-
-```{r, echo=FALSE}
-LIs %>%
-  mutate(exp_time = (as.numeric(block) - 2) * 60 + as.numeric(trial)) %>%
-  ggplot()+
-    geom_line(aes(x=exp_time, y=LI))+
-    facet_grid(block_cond ~ .)+
-    geom_hline(yintercept=0, linetype = "dashed")+
-    ylab("Laterality Index\n(Difference in Log of Power Ratio)")+
-    xlab("Experiment Time (Trials)")
-```
-
 
 
