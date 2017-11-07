@@ -4,7 +4,7 @@ close all;
 clearvars;
 
 %---------- Fake Data -----------------
-fake_data = true;
+fake_data = false;
 %---------- Fake Data -----------------
 
 try 
@@ -191,40 +191,43 @@ try
     %                          Fake Data 
     %----------------------------------------------------------------------
 
-    w = 23;
-    amplitude_rest = 10;
-    amplitude_NF_right_hem = 5;
-    amplitude_NF_left_hem = 2;
-    intercept = 4000;
-    noise = 0;
+    if fake_data
     
-    % length of half trial 
-    time = 10;
+        w = 23;
+        amplitude_rest = 10;
+        amplitude_NF_right_hem = 5;
+        amplitude_NF_left_hem = 2;
+        intercept = 4000;
+        noise = 2;
 
-    w_line = 60;
-    line_noise = 10;
+        % length of half trial 
+        time = 10;
 
-    FS_fake = 128;
+        w_line = 60;
+        line_noise = 10;
 
-    x = 0:(1/FS_fake):time;
+        FS_fake = 128;
 
-    y1 = intercept + amplitude_rest * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
+        x = 0:(1/FS_fake):time;
 
-    % add negative deflection for last 5 seconds
-    y2_right_hem = intercept + amplitude_NF_right_hem * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
-    y2_left_hem = intercept + amplitude_NF_left_hem * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
+        y1 = intercept + amplitude_rest * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
 
-    y_right_hem = [y1 y2_right_hem];
-    y_left_hem = [y1 y2_left_hem];
-    
-    plot([x, x+10+1/FS_fake], y_right_hem, ':', 'color', [1 0 0])
-    xlabel('Time (s)')
-    ylabel('Simulated Signal (uV)')
-    hold on;
-    plot([x, x+10+1/FS_fake], y_left_hem, ':', 'color', [0 1 0])
-    legend('Right Hemisphere', 'Left Hemisphere')
-    drawnow;
-    
+        % add negative deflection for last 5 seconds
+        y2_right_hem = intercept + amplitude_NF_right_hem * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
+        y2_left_hem = intercept + amplitude_NF_left_hem * sin(2*pi*w*x) + line_noise * sin(2*pi*w_line*(x-rand)) + noise * randn([1 (time*FS_fake+1)]);
+
+        y_right_hem = [y1 y2_right_hem];
+        y_left_hem = [y1 y2_left_hem];
+
+        plot([x, x+10+1/FS_fake], y_right_hem, ':', 'color', [1 0 0])
+        xlabel('Time (s)')
+        ylabel('Simulated Signal (uV)')
+        hold on;
+        plot([x, x+10+1/FS_fake], y_left_hem, ':', 'color', [0 1 0])
+        legend('Right Hemisphere', 'Left Hemisphere')
+        drawnow;
+        
+    end
     
     
     %----------------------------------------------------------------------
@@ -356,7 +359,7 @@ try
     cue_locs_list = {'left', 'right'};
     cue_locs = [1, 2];
     
-    NUM_PRACTICE_TRIALS = 1;
+    NUM_PRACTICE_TRIALS = 5;
 
     TRIALS_PER_CONDITION = 30;
     cond_matrix = repmat(cue_locs, 1, TRIALS_PER_CONDITION);
